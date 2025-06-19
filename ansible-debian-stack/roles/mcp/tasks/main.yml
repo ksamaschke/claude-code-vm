@@ -24,6 +24,7 @@
         path: "{{ env_file_path }}"
       register: env_file_stat
       delegate_to: localhost
+      become: false
       run_once: true
 
     - name: Read .env file
@@ -31,6 +32,7 @@
         src: "{{ env_file_path }}"
       register: env_file_content
       delegate_to: localhost
+      become: false
       run_once: true
       when: env_file_stat.stat.exists
 
@@ -177,6 +179,7 @@
     state: link
     owner: "{{ target_user }}"
     group: "{{ target_user }}"
+    force: true
   tags:
     - mcp
     - config

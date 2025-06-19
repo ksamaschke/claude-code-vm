@@ -77,6 +77,31 @@
   when: configure_npm_for_user
   tags:
     - nodejs
+
+- name: Source .bashrc to update PATH immediately for validation
+  shell: |
+    source {{ user_info.ansible_facts.getent_passwd[target_user][4] }}/.bashrc
+    echo "PATH updated: $PATH"
+  become_user: "{{ target_user }}"
+  when: configure_npm_for_user
+  register: path_update
+  tags:
+    - nodejs
+    - path
+
+- name: Create environment setup script for immediate use
+  copy:
+    content: |
+      #!/bin/bash
+      export PATH={{ npm_config_prefix }}/bin:$PATH
+      export NODE_PATH={{ npm_config_prefix }}/lib/node_modules
+    dest: /etc/profile.d/npm-global.sh
+    mode: '0644'
+  become: true
+  when: configure_npm_for_user
+  tags:
+    - nodejs
+    - environment
     - npm
     - configuration
 

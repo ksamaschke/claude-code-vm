@@ -19,6 +19,7 @@ essential_packages:
   - git
   - unzip
   - python3-pip
+  - jq
 
 # Optional packages
 optional_packages:

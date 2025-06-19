@@ -129,21 +129,21 @@
     - name: Validate Claude Code Installation
       block:
         - name: Check Claude Code version (with PATH)
-          shell: "source ~/.bashrc && claude --version"
+          shell: "source ~/.bashrc && source /etc/profile.d/npm-global.sh && claude --version"
           register: claude_version_val
           changed_when: false
           args:
             executable: /bin/bash
 
         - name: Check Claude Code help
-          shell: "source ~/.bashrc && claude --help | head -5"
+          shell: "source ~/.bashrc && source /etc/profile.d/npm-global.sh && claude --help | head -5"
           register: claude_help_val
           changed_when: false
           args:
             executable: /bin/bash
 
         - name: Verify Claude Code executable location
-          shell: "source ~/.bashrc && which claude"
+          shell: "source ~/.bashrc && source /etc/profile.d/npm-global.sh && which claude"
           register: claude_which_val
           changed_when: false
           args:
@@ -330,7 +330,7 @@
           failed_when: false
 
         - name: Check Docker image for Puppeteer MCP
-          command: docker images mcp/puppeteer --format "table {{.Repository}}:{{.Tag}}"
+          command: docker images mcp/puppeteer --format "table {{ '{{' }}.Repository{{ '}}' }}:{{ '{{' }}.Tag{{ '}}' }}"
           register: puppeteer_image_check
           changed_when: false
           failed_when: false

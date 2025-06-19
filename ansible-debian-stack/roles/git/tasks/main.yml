@@ -257,6 +257,14 @@
         scope: global
       become_user: "{{ item }}"
       loop: "{{ configure_git_for_users }}"
+
+    - name: Configure GCM credential store
+      git_config:
+        name: credential.credentialStore
+        value: "cache"
+        scope: global
+      become_user: "{{ item }}"
+      loop: "{{ configure_git_for_users }}"
       when: install_git_credential_manager
 
     - name: Set Git credential helper (when OAuth is installed)
@@ -285,10 +293,7 @@
 
     - name: Register credentials for each Git server
       shell: |
-        echo "{{ git_server.pat }}" | git-credential-manager store \
-          --protocol=https \
-          --host="{{ git_server.host }}" \
-          --username="{{ git_server.username }}"
+        printf "protocol=https\nhost={{ git_server.host }}\nusername={{ git_server.username }}\npassword={{ git_server.pat }}\n" | git-credential-manager store --no-ui
       become_user: "{{ user_item }}"
       vars:
         git_server: "{{ item.1 }}"
@@ -334,11 +339,12 @@
 
     - name: Find default Git service URL for SSH conversion
       set_fact:
-        default_service_url: "{{ (env_vars.git_servers | selectattr('id', 'equalto', env_vars.default_git_service | default('GITHUB')) | list | first).url | default('') }}"
+        default_service_url: "{{ (env_vars.git_servers | selectattr('id', 'equalto', env_vars.DEFAULT_GIT_SERVICE | default('GITHUB')) | list | first).url | default('') }}"
       when: 
         - use_env_file and env_vars is defined
         - env_vars.git_servers | length > 0
-        - env_vars.enable_ssh_conversion == "true"
+        - env_vars.ENABLE_SSH_CONVERSION is defined
+        - env_vars.ENABLE_SSH_CONVERSION == "true"
 
     - name: Configure SSH URL conversion for default service
       git_config:
@@ -348,7 +354,9 @@
       become_user: "{{ item }}"
       loop: "{{ configure_git_for_users }}"
       when: 
-        - use_env_file and env_vars is defined and env_vars.enable_ssh_conversion == "true"
+        - use_env_file and env_vars is defined
+        - env_vars.ENABLE_SSH_CONVERSION is defined
+        - env_vars.ENABLE_SSH_CONVERSION == "true"
         - generate_ssh_keys
         - default_service_url
 

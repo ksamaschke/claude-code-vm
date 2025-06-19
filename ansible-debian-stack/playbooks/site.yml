@@ -89,11 +89,11 @@
       debug:
         msg:
           - "=== Deployment Summary ==="
-          - "Docker Version: {{ docker_version.stdout if docker_version is defined else 'Not captured' }}"
-          - "Docker Compose Version: {{ docker_compose_version.stdout if docker_compose_version is defined else 'Not captured' }}"
-          - "Node.js Version: {{ nodejs_version_check.stdout if nodejs_version_check is defined else 'Not captured' }}"
-          - "npm Version: {{ npm_version_check.stdout if npm_version_check is defined else 'Not captured' }}"
-          - "Claude Code Version: {{ claude_version_check.stdout if claude_version_check is defined else 'Not captured' }}"
+          - "Docker Version: {{ docker_version.stdout | default('Not captured') }}"
+          - "Docker Compose Version: {{ docker_compose_version.stdout | default('Not captured') }}"
+          - "Node.js Version: {{ nodejs_version_check.stdout | default('Not captured') }}"
+          - "npm Version: {{ npm_version_check.stdout | default('Not captured') }}"
+          - "Claude Code Version: {{ claude_version_check.stdout | default('Not captured') }}"
           - "Deployment completed at: {{ ansible_date_time.iso8601 }}"
       tags: always
 
