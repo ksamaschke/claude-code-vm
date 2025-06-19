@@ -1,0 +1,20 @@
+---
+# Git role metadata
+
+galaxy_info:
+  author: "Ansible Debian Stack"
+  description: "Install and configure Git with credential providers"
+  license: MIT
+  min_ansible_version: 2.9
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+        - bullseye
+  galaxy_tags:
+    - git
+    - development
+    - credentials
+    - security
+
+dependencies: []

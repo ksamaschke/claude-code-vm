@@ -1,0 +1,400 @@
+---
+# Validation playbook - Verify all components are properly installed and configured
+
+- name: Validate Development Stack Installation
+  hosts: debian_servers
+  become: false
+  gather_facts: true
+
+  vars:
+    # npm_global_bin will be determined at runtime
+
+  tasks:
+    - name: System Information
+      debug:
+        msg:
+          - "=== System Validation ==="
+          - "Host: {{ inventory_hostname }} ({{ ansible_host }})"
+          - "OS: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+          - "Architecture: {{ ansible_architecture }}"
+          - "User: {{ ansible_user_id }}"
+      tags: always
+
+    - name: Validate Docker Installation
+      block:
+        - name: Check Docker service status
+          systemd:
+            name: docker
+          register: docker_service
+          become: true
+
+        - name: Verify Docker version
+          command: docker --version
+          register: docker_version_val
+          changed_when: false
+
+        - name: Verify Docker Compose version
+          command: docker compose version
+          register: docker_compose_version_val
+          changed_when: false
+
+        - name: Test Docker functionality
+          command: docker run --rm hello-world
+          register: docker_test_val
+          changed_when: false
+
+        - name: Check Docker group membership
+          command: groups {{ ansible_user_id }}
+          register: user_groups
+          changed_when: false
+
+        - name: Display Docker validation results
+          debug:
+            msg:
+              - "=== Docker Validation Results ==="
+              - "Service Status: {{ docker_service.status.ActiveState }}"
+              - "Docker Version: {{ docker_version_val.stdout }}"
+              - "Docker Compose Version: {{ docker_compose_version_val.stdout }}"
+              - "User Groups: {{ user_groups.stdout }}"
+              - "Docker Test: {{ 'PASSED' if docker_test_val.rc == 0 else 'FAILED' }}"
+
+      rescue:
+        - name: Docker validation failed
+          debug:
+            msg: "Docker validation failed. Check installation."
+          failed_when: true
+
+      tags:
+        - docker
+        - validation
+
+    - name: Validate Node.js Installation
+      block:
+        - name: Get user home directory for validation
+          getent:
+            database: passwd
+            key: "{{ target_user }}"
+          register: val_user_info
+
+        - name: Set npm global bin path
+          set_fact:
+            npm_global_bin: "{{ val_user_info.ansible_facts.getent_passwd[target_user][4] }}/.npm-global/bin"
+
+        - name: Check Node.js version
+          command: node --version
+          register: nodejs_version_val
+          changed_when: false
+
+        - name: Check npm version
+          command: npm --version
+          register: npm_version_val
+          changed_when: false
+
+        - name: Check npm global prefix
+          command: npm config get prefix
+          register: npm_prefix_val
+          changed_when: false
+
+        - name: Verify npm global directory exists
+          stat:
+            path: "{{ npm_global_bin }}"
+          register: npm_global_dir_val
+
+        - name: Check PATH contains npm global bin
+          shell: echo $PATH | grep -q "{{ npm_global_bin }}"
+          register: path_check
+          changed_when: false
+          failed_when: false
+
+        - name: Display Node.js validation results
+          debug:
+            msg:
+              - "=== Node.js Validation Results ==="
+              - "Node.js Version: {{ nodejs_version_val.stdout }}"
+              - "npm Version: {{ npm_version_val.stdout }}"
+              - "npm Prefix: {{ npm_prefix_val.stdout }}"
+              - "Global Directory Exists: {{ npm_global_dir_val.stat.exists }}"
+              - "PATH Configuration: {{ 'CORRECT' if path_check.rc == 0 else 'NEEDS UPDATE' }}"
+
+      rescue:
+        - name: Node.js validation failed
+          debug:
+            msg: "Node.js validation failed. Check installation."
+          failed_when: true
+
+      tags:
+        - nodejs
+        - validation
+
+    - name: Validate Claude Code Installation
+      block:
+        - name: Check Claude Code version (with PATH)
+          shell: "source ~/.bashrc && claude --version"
+          register: claude_version_val
+          changed_when: false
+          args:
+            executable: /bin/bash
+
+        - name: Check Claude Code help
+          shell: "source ~/.bashrc && claude --help | head -5"
+          register: claude_help_val
+          changed_when: false
+          args:
+            executable: /bin/bash
+
+        - name: Verify Claude Code executable location
+          shell: "source ~/.bashrc && which claude"
+          register: claude_which_val
+          changed_when: false
+          args:
+            executable: /bin/bash
+
+        - name: List npm global packages
+          shell: "{{ npm_global_bin }}/npm list -g --depth=0 | grep claude"
+          register: npm_claude_list
+          changed_when: false
+          failed_when: false
+
+        - name: Display Claude Code validation results
+          debug:
+            msg:
+              - "=== Claude Code Validation Results ==="
+              - "Claude Version: {{ claude_version_val.stdout }}"
+              - "Claude Location: {{ claude_which_val.stdout }}"
+              - "npm Package: {{ npm_claude_list.stdout if npm_claude_list.rc == 0 else 'Not found in npm list' }}"
+              - "Help Command: {{ 'WORKING' if claude_help_val.rc == 0 else 'FAILED' }}"
+
+      rescue:
+        - name: Claude Code validation failed
+          debug:
+            msg: "Claude Code validation failed. Check installation and PATH configuration."
+          failed_when: true
+
+      tags:
+        - claude-code
+        - validation
+
+    - name: Validate Git Installation
+      block:
+        - name: Check Git version
+          command: git --version
+          register: git_version_val
+          changed_when: false
+
+        - name: Check Git Credential Manager
+          command: git-credential-manager --version
+          register: gcm_version_val
+          changed_when: false
+          failed_when: false
+
+        - name: Check git-credential-oauth
+          command: git-credential-oauth --version
+          register: oauth_version_val
+          changed_when: false
+          failed_when: false
+
+        - name: Check Git global configuration
+          command: git config --global --list
+          register: git_config_val
+          become_user: "{{ target_user }}"
+          changed_when: false
+          failed_when: false
+
+        - name: Check SSH key existence
+          stat:
+            path: "~{{ target_user }}/.ssh/id_ed25519"
+          register: ssh_key_val
+
+        - name: Display Git validation results
+          debug:
+            msg:
+              - "=== Git Validation Results ==="
+              - "Git Version: {{ git_version_val.stdout }}"
+              - "GCM Version: {{ gcm_version_val.stdout if gcm_version_val.rc == 0 else 'NOT INSTALLED' }}"
+              - "OAuth Version: {{ oauth_version_val.stdout if oauth_version_val.rc == 0 else 'NOT INSTALLED' }}"
+              - "SSH Key Present: {{ 'YES' if ssh_key_val.stat.exists else 'NO' }}"
+              - "Git Config: {{ 'CONFIGURED' if git_config_val.rc == 0 else 'NEEDS SETUP' }}"
+
+      rescue:
+        - name: Git validation failed
+          debug:
+            msg: "Git validation failed. Check installation."
+
+      tags:
+        - git
+        - validation
+
+    - name: Validate Kubernetes Tools Installation
+      block:
+        - name: Check kubectl version
+          command: kubectl version --client
+          register: kubectl_version_val
+          changed_when: false
+          failed_when: false
+
+        - name: Check kind version
+          command: kind version
+          register: kind_version_val
+          changed_when: false
+          failed_when: false
+
+        - name: Check kompose version
+          command: kompose version
+          register: kompose_version_val
+          changed_when: false
+          failed_when: false
+
+        - name: Check bash completion for kubectl
+          shell: |
+            [ -f /etc/bash_completion.d/kubectl ] && echo "INSTALLED" || echo "NOT FOUND"
+          register: kubectl_completion_val
+          changed_when: false
+
+        - name: Test kubectl completion in user shell
+          shell: "source ~/.bashrc && complete -p kubectl"
+          become_user: "{{ target_user }}"
+          register: kubectl_user_completion
+          changed_when: false
+          failed_when: false
+          args:
+            executable: /bin/bash
+
+        - name: Display Kubernetes tools validation results
+          debug:
+            msg:
+              - "=== Kubernetes Tools Validation Results ==="
+              - "kubectl: {{ kubectl_version_val.stdout if kubectl_version_val.rc == 0 else 'NOT INSTALLED' }}"
+              - "kind: {{ kind_version_val.stdout if kind_version_val.rc == 0 else 'NOT INSTALLED' }}"
+              - "kompose: {{ kompose_version_val.stdout if kompose_version_val.rc == 0 else 'NOT INSTALLED' }}"
+              - "kubectl completion: {{ kubectl_completion_val.stdout }}"
+              - "User completion: {{ 'CONFIGURED' if kubectl_user_completion.rc == 0 else 'NEEDS SHELL RELOAD' }}"
+
+      rescue:
+        - name: Kubernetes tools validation failed
+          debug:
+            msg: "Some Kubernetes tools validation failed. Check installation."
+
+      tags:
+        - kubernetes
+        - validation
+
+    - name: Validate MCP Configuration
+      block:
+        - name: Get target user home directory for MCP validation
+          getent:
+            database: passwd
+            key: "{{ target_user }}"
+          register: mcp_val_user_info
+
+        - name: Set MCP configuration paths
+          set_fact:
+            mcp_config_path: "{{ mcp_val_user_info.ansible_facts.getent_passwd[target_user][4] }}/.claude/mcp-servers.json"
+            mcp_alt_config_path: "{{ mcp_val_user_info.ansible_facts.getent_passwd[target_user][4] }}/.config/claude-code/mcp-servers.json"
+
+        - name: Check primary MCP configuration file
+          stat:
+            path: "{{ mcp_config_path }}"
+          register: mcp_config_file
+
+        - name: Check alternative MCP configuration file
+          stat:
+            path: "{{ mcp_alt_config_path }}"
+          register: mcp_alt_config_file
+
+        - name: Validate MCP configuration syntax
+          shell: "python3 -m json.tool {{ mcp_config_path }} > /dev/null"
+          become_user: "{{ target_user }}"
+          when: mcp_config_file.stat.exists
+          changed_when: false
+          register: mcp_json_syntax
+
+        - name: List configured MCP servers
+          shell: "jq -r '.mcpServers | keys[]' {{ mcp_config_path }}"
+          become_user: "{{ target_user }}"
+          when: mcp_config_file.stat.exists
+          changed_when: false
+          register: mcp_servers_list
+
+        - name: Check MCP server packages availability
+          shell: "{{ mcp_val_user_info.ansible_facts.getent_passwd[target_user][4] }}/.npm-global/bin/npm list -g {{ item }}"
+          become_user: "{{ target_user }}"
+          loop:
+            - "@modelcontextprotocol/server-sequential-thinking"
+            - "@modelcontextprotocol/server-memory"
+            - "@modelcontextprotocol/server-brave-search"
+            - "@upstash/context7-mcp"
+            - "@cablate/mcp-doc-forge"
+            - "mcp-omnisearch"
+          register: mcp_packages_check
+          changed_when: false
+          failed_when: false
+
+        - name: Check Docker image for Puppeteer MCP
+          command: docker images mcp/puppeteer --format "table {{.Repository}}:{{.Tag}}"
+          register: puppeteer_image_check
+          changed_when: false
+          failed_when: false
+
+        - name: Display MCP validation results
+          debug:
+            msg:
+              - "=== MCP Configuration Validation Results ==="
+              - "Primary config exists: {{ 'YES' if mcp_config_file.stat.exists else 'NO' }}"
+              - "Alternative config exists: {{ 'YES' if mcp_alt_config_file.stat.exists else 'NO' }}"
+              - "JSON syntax valid: {{ 'YES' if mcp_json_syntax.rc == 0 else 'NO' }}"
+              - "Configured servers: {{ mcp_servers_list.stdout_lines | join(', ') if mcp_config_file.stat.exists else 'NONE' }}"
+              - "Puppeteer Docker image: {{ 'AVAILABLE' if 'mcp/puppeteer' in puppeteer_image_check.stdout else 'NOT FOUND' }}"
+              - "MCP packages installed: {{ mcp_packages_check.results | selectattr('rc', 'equalto', 0) | list | length }}/{{ mcp_packages_check.results | length }}"
+
+      rescue:
+        - name: MCP validation failed
+          debug:
+            msg: "MCP validation failed. Check configuration and package installation."
+
+      tags:
+        - mcp
+        - validation
+
+    - name: Overall System Health Check
+      block:
+        - name: Check system load
+          command: uptime
+          register: system_load
+          changed_when: false
+
+        - name: Check available disk space
+          command: df -h /
+          register: disk_space
+          changed_when: false
+
+        - name: Check memory usage
+          command: free -h
+          register: memory_usage
+          changed_when: false
+
+        - name: Display system health
+          debug:
+            msg:
+              - "=== System Health ==="
+              - "Uptime: {{ system_load.stdout }}"
+              - "Disk Space: {{ disk_space.stdout_lines[1] }}"
+              - "Memory: {{ memory_usage.stdout_lines[1] }}"
+
+      tags:
+        - system
+        - health
+
+    - name: Final Validation Summary
+      debug:
+        msg:
+          - "=== VALIDATION COMPLETE ==="
+          - "All components have been validated successfully!"
+          - "The system is ready for use."
+          - ""
+          - "Next steps:"
+          - "1. Start a new shell session or run 'source ~/.bashrc'"
+          - "2. Test Docker: docker run --rm hello-world"
+          - "3. Test Node.js: node --version"
+          - "4. Test Claude Code: claude --version"
+          - "5. For Claude Code authentication: claude"
+      tags: always

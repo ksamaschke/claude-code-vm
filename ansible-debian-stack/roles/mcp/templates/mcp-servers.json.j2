@@ -1,0 +1,89 @@
+{
+  "mcpServers": {
+    "puppeteer": {
+      "type": "stdio",
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "--init", "-e", "DOCKER_CONTAINER=true", "mcp/puppeteer"],
+      "env": {}
+    },
+    "sequential-thinking": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/server-sequential-thinking"
+      ],
+      "env": {}
+    },
+    "memory": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/server-memory"
+      ],
+      "env": {}
+    }{% if env_vars.BRAVE_API_KEY is defined and env_vars.BRAVE_API_KEY %},
+    "brave-search": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/server-brave-search"
+      ],
+      "env": {
+        "BRAVE_API_KEY": "{{ env_vars.BRAVE_API_KEY }}"
+      }
+    }{% endif %}{% if env_vars.UPSTASH_REDIS_REST_URL is defined and env_vars.UPSTASH_REDIS_REST_URL %},
+    "context7": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "@upstash/context7-mcp@latest"
+      ],
+      "env": {
+        "UPSTASH_REDIS_REST_URL": "{{ env_vars.UPSTASH_REDIS_REST_URL }}",
+        "UPSTASH_REDIS_REST_TOKEN": "{{ env_vars.UPSTASH_REDIS_REST_TOKEN | default('') }}"
+      }
+    }{% endif %},
+    "doc-forge": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "@cablate/mcp-doc-forge"
+      ],
+      "env": {}
+    }{% if (env_vars.TAVILY_API_KEY is defined and env_vars.TAVILY_API_KEY) or 
+           (env_vars.KAGI_API_KEY is defined and env_vars.KAGI_API_KEY) or
+           (env_vars.PERPLEXITY_API_KEY is defined and env_vars.PERPLEXITY_API_KEY) or
+           (env_vars.JINA_AI_API_KEY is defined and env_vars.JINA_AI_API_KEY) %},
+    "omnisearch": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "mcp-omnisearch"],
+      "env": {
+{% set comma_needed = [] -%}
+{% if env_vars.TAVILY_API_KEY is defined and env_vars.TAVILY_API_KEY -%}
+        "TAVILY_API_KEY": "{{ env_vars.TAVILY_API_KEY }}"
+{%- set _ = comma_needed.append(1) -%}
+{% endif -%}
+{% if env_vars.BRAVE_API_KEY is defined and env_vars.BRAVE_API_KEY -%}
+{%- if comma_needed %},{% endif %}
+        "BRAVE_API_KEY": "{{ env_vars.BRAVE_API_KEY }}"
+{%- set _ = comma_needed.append(1) -%}
+{% endif -%}
+{% if env_vars.KAGI_API_KEY is defined and env_vars.KAGI_API_KEY -%}
+{%- if comma_needed %},{% endif %}
+        "KAGI_API_KEY": "{{ env_vars.KAGI_API_KEY }}"
+{%- set _ = comma_needed.append(1) -%}
+{% endif -%}
+{% if env_vars.PERPLEXITY_API_KEY is defined and env_vars.PERPLEXITY_API_KEY -%}
+{%- if comma_needed %},{% endif %}
+        "PERPLEXITY_API_KEY": "{{ env_vars.PERPLEXITY_API_KEY }}"
+{%- set _ = comma_needed.append(1) -%}
+{% endif -%}
+{% if env_vars.JINA_AI_API_KEY is defined and env_vars.JINA_AI_API_KEY -%}
+{%- if comma_needed %},{% endif %}
+        "JINA_AI_API_KEY": "{{ env_vars.JINA_AI_API_KEY }}"
+{% endif %}
+      }
+    }{% endif %}
+  }
+}

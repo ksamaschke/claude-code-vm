@@ -1,0 +1,154 @@
+---
+# Docker role tasks - Install Docker CE and Docker Compose plugin
+
+- name: Remove conflicting Docker packages
+  apt:
+    name: "{{ docker_conflicting_packages }}"
+    state: absent
+    purge: true
+  tags:
+    - docker
+    - cleanup
+
+- name: Create keyrings directory
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+  tags:
+    - docker
+    - setup
+
+- name: Download and install Docker GPG key (official method)
+  shell: |
+    curl -fsSL {{ docker_gpg_key_url }} -o {{ docker_gpg_key_path }}
+    chmod a+r {{ docker_gpg_key_path }}
+  args:
+    creates: "{{ docker_gpg_key_path }}"
+  register: docker_gpg_key
+  tags:
+    - docker
+    - repository
+
+- name: Get correct architecture for Docker repository
+  shell: dpkg --print-architecture
+  register: docker_arch
+  changed_when: false
+
+- name: Add Docker repository
+  apt_repository:
+    repo: "deb [arch={{ docker_arch.stdout }} signed-by={{ docker_gpg_key_path }}] {{ docker_repo_url }} {{ ansible_distribution_release }} stable"
+    filename: docker
+    state: present
+    update_cache: true
+  tags:
+    - docker
+    - repository
+
+- name: Update apt cache after adding Docker repository
+  apt:
+    update_cache: true
+    cache_valid_time: 0
+  tags:
+    - docker
+    - repository
+
+- name: Install Docker packages
+  apt:
+    name: "{{ docker_packages }}"
+    state: present
+    update_cache: true
+  register: docker_installation
+  until: docker_installation is succeeded
+  retries: 3
+  delay: 10
+  tags:
+    - docker
+    - packages
+
+- name: Create Docker daemon configuration directory
+  file:
+    path: /etc/docker
+    state: directory
+    mode: '0755'
+  tags:
+    - docker
+    - configuration
+
+- name: Configure Docker daemon
+  copy:
+    content: "{{ docker_daemon_config | to_nice_json }}"
+    dest: /etc/docker/daemon.json
+    mode: '0644'
+  notify: restart docker
+  when: docker_daemon_config is defined and docker_daemon_config | length > 0
+  tags:
+    - docker
+    - configuration
+
+- name: Start and enable Docker services
+  systemd:
+    name: "{{ item }}"
+    state: started
+    enabled: true
+    daemon_reload: true
+  loop: "{{ docker_services }}"
+  tags:
+    - docker
+    - services
+
+- name: Create docker group
+  group:
+    name: docker
+    state: present
+  tags:
+    - docker
+    - users
+
+- name: Add users to docker group
+  user:
+    name: "{{ item }}"
+    groups: docker
+    append: true
+  loop: "{{ docker_users }}"
+  when: add_users_to_docker_group and docker_users is defined
+  notify: notify user of group change
+  tags:
+    - docker
+    - users
+
+- name: Validate Docker installation
+  block:
+    - name: Check Docker daemon status
+      systemd:
+        name: docker
+      register: docker_service_status
+
+    - name: Verify Docker version
+      command: docker --version
+      register: docker_version
+      changed_when: false
+
+    - name: Verify Docker Compose plugin
+      command: docker compose version
+      register: docker_compose_version
+      changed_when: false
+
+    - name: Display Docker versions
+      debug:
+        msg: 
+          - "Docker: {{ docker_version.stdout }}"
+          - "Docker Compose: {{ docker_compose_version.stdout }}"
+          - "Service Status: {{ docker_service_status.status.ActiveState }}"
+
+    - name: Test Docker functionality
+      command: docker run --rm hello-world
+      register: docker_test
+      changed_when: false
+      become_user: "{{ docker_users[0] if docker_users | length > 0 else ansible_user }}"
+      when: docker_users | length > 0
+
+  when: validate_installation
+  tags:
+    - docker
+    - validation

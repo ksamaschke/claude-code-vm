@@ -1,0 +1,13 @@
+---
+# Git role handlers
+
+- name: reload systemd
+  systemd:
+    daemon_reload: true
+  become: true
+
+- name: restart ssh
+  systemd:
+    name: ssh
+    state: restarted
+  become: true

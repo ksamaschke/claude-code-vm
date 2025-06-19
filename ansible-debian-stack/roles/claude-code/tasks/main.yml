@@ -1,0 +1,143 @@
+---
+# Claude Code role tasks - Install Claude Code npm package globally
+
+- name: Verify Node.js is installed
+  command: node --version
+  register: nodejs_check
+  changed_when: false
+  failed_when: nodejs_check.rc != 0
+  tags:
+    - claude-code
+    - prerequisites
+
+- name: Get target user home directory
+  getent:
+    database: passwd
+    key: "{{ target_user }}"
+  register: claude_user_info
+
+- name: Set npm configuration paths
+  set_fact:
+    npm_config_prefix: "{{ claude_user_info.ansible_facts.getent_passwd[target_user][4] }}/.npm-global"
+    npm_executable: "{{ claude_user_info.ansible_facts.getent_passwd[target_user][4] }}/.npm-global/bin/npm"
+
+- name: Verify npm is configured
+  stat:
+    path: "{{ npm_config_prefix }}"
+  register: npm_global_dir
+  tags:
+    - claude-code
+    - prerequisites
+
+- name: Ensure npm global directory exists
+  file:
+    path: "{{ npm_config_prefix }}"
+    state: directory
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: '0755'
+  when: not npm_global_dir.stat.exists
+  tags:
+    - claude-code
+    - prerequisites
+
+- name: Check if Claude Code is already installed
+  command: "{{ npm_config_prefix }}/bin/claude --version"
+  register: claude_code_installed
+  become_user: "{{ target_user }}"
+  environment:
+    PATH: "{{ npm_config_prefix }}/bin:{{ ansible_env.PATH }}"
+  changed_when: false
+  failed_when: false
+  tags:
+    - claude-code
+    - check
+
+- name: Display current Claude Code version (if installed)
+  debug:
+    msg: "Claude Code is already installed: {{ claude_code_installed.stdout }}"
+  when: claude_code_installed.rc == 0 and not force_reinstall
+  tags:
+    - claude-code
+    - check
+
+- name: Install Claude Code package globally
+  npm:
+    name: "{{ claude_code_package }}"
+    version: "{{ claude_code_version if claude_code_version != 'latest' else omit }}"
+    global: true
+    executable: "{{ npm_executable }}"
+  become_user: "{{ target_user }}"
+  environment:
+    PATH: "{{ npm_config_prefix }}/bin:{{ ansible_env.PATH }}"
+  register: claude_installation
+  when: claude_code_installed.rc != 0 or force_reinstall
+  tags:
+    - claude-code
+    - install
+
+- name: Validate Claude Code installation
+  block:
+    - name: Check Claude Code version
+      command: "{{ npm_config_prefix }}/bin/claude --version"
+      register: claude_version_check
+      become_user: "{{ target_user }}"
+      environment:
+        PATH: "{{ npm_config_prefix }}/bin:{{ ansible_env.PATH }}"
+      changed_when: false
+
+    - name: Display Claude Code version
+      debug:
+        msg: "Claude Code installed: {{ claude_version_check.stdout }}"
+
+    - name: Verify Claude Code help command
+      command: "{{ npm_config_prefix }}/bin/claude --help"
+      register: claude_help_check
+      become_user: "{{ target_user }}"
+      environment:
+        PATH: "{{ npm_config_prefix }}/bin:{{ ansible_env.PATH }}"
+      changed_when: false
+      when: display_help
+
+    - name: Display Claude Code help (first 10 lines)
+      debug:
+        msg: "{{ claude_help_check.stdout_lines[:10] }}"
+      when: display_help and claude_help_check is defined
+
+    - name: Verify claude command is in PATH
+      shell: "which claude"
+      become_user: "{{ target_user }}"
+      environment:
+        PATH: "{{ npm_config_prefix }}/bin:{{ ansible_env.PATH }}"
+      register: claude_path_check
+      changed_when: false
+
+    - name: Display Claude Code executable path
+      debug:
+        msg: "Claude Code executable found at: {{ claude_path_check.stdout }}"
+
+  when: validate_installation
+  tags:
+    - claude-code
+    - validation
+
+- name: Display authentication requirements
+  debug:
+    msg: "{{ authentication_note.split('\n') }}"
+  when: authentication_required
+  tags:
+    - claude-code
+    - authentication
+
+- name: Create completion note
+  debug:
+    msg:
+      - "Claude Code installation completed successfully!"
+      - "To use Claude Code:"
+      - "1. Ensure {{ npm_config_prefix }}/bin is in your PATH"
+      - "2. Run 'source ~/.bashrc' to reload your shell environment"
+      - "3. Run 'claude' to start the authentication process"
+      - "4. You'll need an Anthropic account with billing enabled"
+  tags:
+    - claude-code
+    - completion

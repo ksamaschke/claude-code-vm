@@ -1,0 +1,23 @@
+---
+# Default variables for nodejs role
+
+# Node.js version configuration
+nodejs_version: "22"  # LTS version
+nodejs_install_method: "nodesource"  # nodesource or nvm
+
+# NodeSource repository configuration
+nodejs_repo_url: "https://deb.nodesource.com/node_{{ nodejs_version }}.x"
+nodejs_gpg_key_url: "https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key"
+nodejs_gpg_key_path: "/etc/apt/keyrings/nodesource.gpg"
+nodejs_repo_codename: "nodistro"
+
+# npm configuration
+npm_global_packages: []
+
+# User configuration
+configure_npm_for_user: true
+update_npm_to_latest: true
+
+# Validation settings
+validate_installation: true
+test_npm_install: false

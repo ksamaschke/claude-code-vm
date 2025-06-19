@@ -1,0 +1,164 @@
+---
+# Node.js role tasks - Install Node.js via NodeSource repository
+
+- name: Install NodeSource GPG key (official method)
+  shell: |
+    curl -fsSL {{ nodejs_gpg_key_url }} | gpg --dearmor -o {{ nodejs_gpg_key_path }}
+    chmod a+r {{ nodejs_gpg_key_path }}
+  args:
+    creates: "{{ nodejs_gpg_key_path }}"
+  register: nodejs_gpg_key
+  tags:
+    - nodejs
+    - repository
+
+- name: Add NodeSource repository
+  apt_repository:
+    repo: "deb [signed-by={{ nodejs_gpg_key_path }}] {{ nodejs_repo_url }} {{ nodejs_repo_codename }} main"
+    filename: nodesource
+    state: present
+    update_cache: true
+  tags:
+    - nodejs
+    - repository
+
+- name: Install Node.js
+  apt:
+    name: nodejs
+    state: present
+    update_cache: true
+  register: nodejs_installation
+  until: nodejs_installation is succeeded
+  retries: 3
+  delay: 10
+  tags:
+    - nodejs
+    - packages
+
+- name: Get target user home directory
+  getent:
+    database: passwd
+    key: "{{ target_user }}"
+  register: user_info
+
+- name: Set npm global directory path
+  set_fact:
+    npm_config_prefix: "{{ user_info.ansible_facts.getent_passwd[target_user][4] }}/.npm-global"
+
+- name: Create npm global directory for user
+  file:
+    path: "{{ npm_config_prefix }}"
+    state: directory
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: '0755'
+  when: configure_npm_for_user
+  tags:
+    - nodejs
+    - npm
+    - configuration
+
+- name: Configure npm prefix for user
+  shell: npm config set prefix '{{ npm_config_prefix }}'
+  become_user: "{{ target_user }}"
+  when: configure_npm_for_user
+  tags:
+    - nodejs
+    - npm
+    - configuration
+
+- name: Add npm global bin to PATH in .bashrc
+  lineinfile:
+    path: "{{ user_info.ansible_facts.getent_passwd[target_user][4] }}/.bashrc"
+    line: 'export PATH={{ npm_config_prefix }}/bin:$PATH'
+    create: true
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+  when: configure_npm_for_user
+  tags:
+    - nodejs
+    - npm
+    - configuration
+
+- name: Update npm to latest version
+  shell: npm install -g npm@latest
+  become_user: "{{ target_user }}"
+  environment:
+    PATH: "{{ npm_config_prefix }}/bin:{{ ansible_env.PATH }}"
+  when: update_npm_to_latest and npm_config_prefix is defined
+  tags:
+    - nodejs
+    - npm
+    - update
+
+- name: Install global npm packages
+  npm:
+    name: "{{ item }}"
+    global: true
+    executable: "{{ npm_config_prefix }}/bin/npm"
+  become_user: "{{ target_user }}"
+  environment:
+    PATH: "{{ npm_config_prefix }}/bin:{{ ansible_env.PATH }}"
+  loop: "{{ npm_global_packages }}"
+  when: npm_global_packages | length > 0 and npm_config_prefix is defined
+  tags:
+    - nodejs
+    - npm
+    - packages
+
+- name: Validate Node.js installation
+  block:
+    - name: Check Node.js version
+      command: node --version
+      register: nodejs_version_check
+      changed_when: false
+
+    - name: Check npm version
+      command: npm --version
+      register: npm_version_check
+      changed_when: false
+
+    - name: Display Node.js and npm versions
+      debug:
+        msg: 
+          - "Node.js: {{ nodejs_version_check.stdout }}"
+          - "npm: {{ npm_version_check.stdout }}"
+
+    - name: Verify npm global configuration
+      command: npm config get prefix
+      register: npm_prefix_check
+      become_user: "{{ target_user }}"
+      changed_when: false
+      when: configure_npm_for_user
+
+    - name: Display npm prefix configuration
+      debug:
+        msg: "npm prefix: {{ npm_prefix_check.stdout }}"
+      when: configure_npm_for_user and npm_prefix_check is defined
+
+    - name: Test npm package installation (optional)
+      npm:
+        name: "cowsay"
+        global: true
+        executable: "{{ npm_config_prefix }}/bin/npm"
+      become_user: "{{ target_user }}"
+      environment:
+        PATH: "{{ npm_config_prefix }}/bin:{{ ansible_env.PATH }}"
+      register: npm_test_install
+      when: test_npm_install
+
+    - name: Remove test package
+      npm:
+        name: "cowsay"
+        global: true
+        state: absent
+        executable: "{{ npm_config_prefix }}/bin/npm"
+      become_user: "{{ target_user }}"
+      environment:
+        PATH: "{{ npm_config_prefix }}/bin:{{ ansible_env.PATH }}"
+      when: test_npm_install and npm_test_install is succeeded
+
+  when: validate_installation
+  tags:
+    - nodejs
+    - validation

@@ -1,0 +1,35 @@
+---
+# Default variables for kubernetes role
+
+# Kubernetes repository configuration
+kubernetes_version: "v1.33"  # Kubernetes major.minor version
+kubernetes_repo_url: "https://pkgs.k8s.io/core:/stable:/{{ kubernetes_version }}/deb/"
+kubernetes_gpg_key_url: "https://pkgs.k8s.io/core:/stable:/{{ kubernetes_version }}/deb/Release.key"
+kubernetes_gpg_key_path: "/etc/apt/keyrings/kubernetes-apt-keyring.gpg"
+
+# kubectl configuration
+install_kubectl: true
+kubectl_hold_package: true  # Prevent automatic updates
+
+# kind configuration
+install_kind: true
+kind_version: "v0.29.0"
+kind_binary_url: "https://kind.sigs.k8s.io/dl/{{ kind_version }}/kind-linux-amd64"
+kind_install_path: "/usr/local/bin/kind"
+
+# kompose configuration
+install_kompose: true
+kompose_version: "v1.36.0"
+kompose_binary_url: "https://github.com/kubernetes/kompose/releases/download/{{ kompose_version }}/kompose-linux-amd64"
+kompose_install_path: "/usr/local/bin/kompose"
+
+# Bash completion configuration
+install_bash_completion: true
+bash_completion_package: "bash-completion"
+
+# User configuration
+configure_completions_for_users:
+  - "{{ target_user }}"
+
+# Validation settings
+validate_installation: true

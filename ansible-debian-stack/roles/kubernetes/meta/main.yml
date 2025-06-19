@@ -1,0 +1,35 @@
+---
+# Role metadata for kubernetes role
+
+galaxy_info:
+  role_name: kubernetes
+  author: Ansible Automation
+  description: Install kubectl, kind, kompose, and bash completions for Kubernetes tools
+  company: N/A
+  license: MIT
+  min_ansible_version: "2.10"
+  
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+        - bullseye
+        - buster
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+        - noble
+
+  galaxy_tags:
+    - kubernetes
+    - kubectl
+    - kind
+    - kompose
+    - bash-completion
+    - development
+    - containers
+
+dependencies:
+  - role: common
+  - role: docker

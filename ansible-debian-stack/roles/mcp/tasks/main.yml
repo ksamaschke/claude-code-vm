@@ -1,0 +1,199 @@
+---
+# MCP (Model Context Protocol) server configuration tasks
+
+- name: Get target user information
+  getent:
+    database: passwd
+    key: "{{ target_user }}"
+  register: mcp_user_info
+  tags:
+    - mcp
+    - prerequisites
+
+- name: Set target user home directory
+  set_fact:
+    target_user_home: "{{ mcp_user_info.ansible_facts.getent_passwd[target_user][4] }}"
+  tags:
+    - mcp
+    - prerequisites
+
+- name: Load environment variables from .env file
+  block:
+    - name: Check if .env file exists
+      stat:
+        path: "{{ env_file_path }}"
+      register: env_file_stat
+      delegate_to: localhost
+      run_once: true
+
+    - name: Read .env file
+      slurp:
+        src: "{{ env_file_path }}"
+      register: env_file_content
+      delegate_to: localhost
+      run_once: true
+      when: env_file_stat.stat.exists
+
+    - name: Parse environment variables
+      set_fact:
+        env_vars: "{{ env_vars | default({}) | combine({item.split('=')[0]: item.split('=')[1] | regex_replace('^\"|\"$', '')}) }}"
+      loop: "{{ (env_file_content.content | b64decode).split('\n') }}"
+      when: 
+        - env_file_stat.stat.exists
+        - item is match('^[A-Z_]+=.*')
+        - not item.startswith('#')
+      no_log: true
+
+    - name: Display loaded environment variables (masked)
+      debug:
+        msg: "Loaded {{ env_vars.keys() | list | length }} environment variables from .env file"
+      when: env_file_stat.stat.exists
+  when: use_env_file
+  tags:
+    - mcp
+    - env-file
+
+- name: Verify Node.js and npm are available
+  command: "{{ item }}"
+  loop:
+    - "node --version"
+    - "npm --version"
+  register: nodejs_check
+  changed_when: false
+  failed_when: nodejs_check.rc != 0
+  become_user: "{{ target_user }}"
+  tags:
+    - mcp
+    - prerequisites
+
+- name: Install MCP server packages globally
+  npm:
+    name: "{{ item }}"
+    global: true
+    state: present
+  loop: "{{ mcp_packages }}"
+  become_user: "{{ target_user }}"
+  environment:
+    PATH: "{{ target_user_home }}/.npm-global/bin:{{ ansible_env.PATH }}"
+  when: install_mcp_packages
+  tags:
+    - mcp
+    - packages
+
+- name: Pull Docker images for MCP servers
+  docker_image:
+    name: "{{ item }}"
+    source: pull
+    state: present
+  loop: "{{ mcp_docker_images }}"
+  when: pull_docker_images
+  tags:
+    - mcp
+    - docker
+
+- name: Create Claude Code configuration directory
+  file:
+    path: "{{ mcp_config_dir }}"
+    state: directory
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: '0755'
+  tags:
+    - mcp
+    - config
+
+- name: Check if MCP configuration already exists
+  stat:
+    path: "{{ mcp_config_file }}"
+  register: existing_mcp_config
+  tags:
+    - mcp
+    - config
+
+- name: Backup existing MCP configuration
+  copy:
+    src: "{{ mcp_config_file }}"
+    dest: "{{ mcp_config_file }}.backup.{{ ansible_date_time.epoch }}"
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: '0600'
+    remote_src: true
+  when: 
+    - existing_mcp_config.stat.exists
+    - create_backup
+  tags:
+    - mcp
+    - config
+    - backup
+
+- name: Generate MCP servers configuration
+  template:
+    src: mcp-servers.json.j2
+    dest: "{{ mcp_config_file }}"
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: '0600'
+    backup: "{{ create_backup }}"
+  tags:
+    - mcp
+    - config
+
+- name: Validate MCP configuration syntax
+  block:
+    - name: Check JSON syntax
+      shell: "python3 -m json.tool {{ mcp_config_file }} > /dev/null"
+      become_user: "{{ target_user }}"
+      changed_when: false
+
+    - name: Display MCP configuration summary
+      shell: "jq -r '.mcpServers | keys[]' {{ mcp_config_file }}"
+      register: mcp_servers_list
+      become_user: "{{ target_user }}"
+      changed_when: false
+
+    - name: Show configured MCP servers
+      debug:
+        msg: "Configured MCP servers: {{ mcp_servers_list.stdout_lines | join(', ') }}"
+  when: validate_mcp_config
+  tags:
+    - mcp
+    - validation
+
+- name: Create Claude Code settings directory (alternative location)
+  file:
+    path: "{{ target_user_home }}/.config/claude-code"
+    state: directory
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: '0755'
+  tags:
+    - mcp
+    - config
+
+- name: Create symlink for MCP configuration (compatibility)
+  file:
+    src: "{{ mcp_config_file }}"
+    dest: "{{ target_user_home }}/.config/claude-code/mcp-servers.json"
+    state: link
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+  tags:
+    - mcp
+    - config
+
+- name: Display MCP setup completion
+  debug:
+    msg:
+      - "=== MCP Server Configuration Complete ==="
+      - "Configuration file: {{ mcp_config_file }}"
+      - "Installed packages: {{ mcp_packages | length }}"
+      - "Docker images: {{ mcp_docker_images | length if pull_docker_images else 0 }}"
+      - "Environment variables: {{ env_vars.keys() | list | length if env_vars is defined else 0 }}"
+      - ""
+      - "Next steps:"
+      - "1. Restart Claude Code to load new MCP configuration"
+      - "2. Verify MCP servers with '/mcp' command in Claude Code"
+      - "3. Test individual MCP tools as needed"
+  tags:
+    - mcp
+    - completion

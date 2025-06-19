@@ -1,0 +1,31 @@
+---
+# Role metadata for common role
+
+galaxy_info:
+  role_name: common
+  author: Ansible Automation
+  description: Common system preparation tasks for Debian servers
+  company: N/A
+  license: MIT
+  min_ansible_version: "2.10"
+  
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+        - bullseye
+        - buster
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+        - noble
+
+  galaxy_tags:
+    - system
+    - debian
+    - ubuntu
+    - packages
+    - preparation
+
+dependencies: []

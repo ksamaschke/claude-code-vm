@@ -1,0 +1,121 @@
+---
+# Main site playbook - Deploy full stack to Debian VM
+# Installs Docker, Docker Compose, Node.js, and Claude Code
+
+- name: Deploy Development Stack to Debian VM
+  hosts: debian_servers
+  become: true
+  gather_facts: true
+  serial: 1
+
+  vars:
+    deployment_timestamp: "{{ ansible_date_time.iso8601 }}"
+    deployment_user: "{{ ansible_user_id }}"
+
+  pre_tasks:
+    - name: Display deployment information
+      debug:
+        msg:
+          - "=== Ansible Deployment Started ==="
+          - "Target Host: {{ inventory_hostname }} ({{ ansible_host }})"
+          - "Operating System: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+          - "Architecture: {{ ansible_architecture }}"
+          - "Deployment Time: {{ deployment_timestamp }}"
+          - "Deployment User: {{ deployment_user }}"
+          - "Target User: {{ target_user }}"
+      tags: always
+
+    - name: Verify SSH connectivity and sudo access
+      ping:
+      tags: always
+
+    - name: Check sudo access
+      command: sudo -n true
+      register: sudo_check
+      failed_when: sudo_check.rc != 0
+      changed_when: false
+      tags: always
+
+  roles:
+    - role: common
+      tags: 
+        - common
+        - system
+        - prerequisites
+
+    - role: git
+      tags:
+        - git
+        - credentials
+        - version-control
+
+    - role: docker
+      tags:
+        - docker
+        - containers
+
+    - role: nodejs
+      tags:
+        - nodejs
+        - npm
+        - javascript
+      vars:
+        npm_global_packages: "{{ nodejs_npm_global_packages | default([]) }}"
+
+    - role: claude-code
+      tags:
+        - claude-code
+        - ai
+        - cli
+
+    - role: kubernetes
+      tags:
+        - kubernetes
+        - kubectl
+        - kind
+        - kompose
+        - k8s
+        - bash-completion
+
+    - role: mcp
+      tags:
+        - mcp
+        - model-context-protocol
+        - claude-extensions
+        - ai-tools
+
+  post_tasks:
+    - name: Final system information
+      debug:
+        msg:
+          - "=== Deployment Summary ==="
+          - "Docker Version: {{ docker_version.stdout if docker_version is defined else 'Not captured' }}"
+          - "Docker Compose Version: {{ docker_compose_version.stdout if docker_compose_version is defined else 'Not captured' }}"
+          - "Node.js Version: {{ nodejs_version_check.stdout if nodejs_version_check is defined else 'Not captured' }}"
+          - "npm Version: {{ npm_version_check.stdout if npm_version_check is defined else 'Not captured' }}"
+          - "Claude Code Version: {{ claude_version_check.stdout if claude_version_check is defined else 'Not captured' }}"
+          - "Deployment completed at: {{ ansible_date_time.iso8601 }}"
+      tags: always
+
+    - name: Display post-deployment instructions
+      debug:
+        msg:
+          - "=== Post-Deployment Instructions ==="
+          - "1. Log out and log back in for Docker group membership to take effect"
+          - "2. Run 'source ~/.bashrc' to update PATH for npm global packages"
+          - "3. Verify installations:"
+          - "   - docker --version"
+          - "   - docker compose version"
+          - "   - node --version"
+          - "   - npm --version"
+          - "   - claude --version"
+          - "4. To use Docker without sudo, start a new shell session"
+          - "5. To use Claude Code, run 'claude' and follow authentication prompts"
+      tags: always
+
+  handlers:
+    - name: restart docker
+      systemd:
+        name: docker
+        state: restarted
+        daemon_reload: true

@@ -1,0 +1,67 @@
+{
+  "mcpServers": {
+    "puppeteer": {
+      "type": "stdio",
+      "command": "docker",
+      "args": ["run", "-i", "--rm", "--init", "-e", "DOCKER_CONTAINER=true", "mcp/puppeteer"],
+      "env": {}
+    },
+    "sequential-thinking": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/server-sequential-thinking"
+      ],
+      "env": {}
+    },
+    "memory": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/server-memory"
+      ],
+      "env": {}
+    },
+    "brave-search": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/server-brave-search"
+      ],
+      "env": {
+        "BRAVE_API_KEY": "${BRAVE_API_KEY}"
+      }
+    },
+    "context7": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "@upstash/context7-mcp@latest"
+      ],
+      "env": {
+        "UPSTASH_REDIS_REST_URL": "${UPSTASH_REDIS_REST_URL}",
+        "UPSTASH_REDIS_REST_TOKEN": "${UPSTASH_REDIS_REST_TOKEN}"
+      }
+    },
+    "doc-forge": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "@cablate/mcp-doc-forge"
+      ],
+      "env": {}
+    },
+    "omnisearch": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "mcp-omnisearch"],
+      "env": {
+        "TAVILY_API_KEY": "${TAVILY_API_KEY}",
+        "BRAVE_API_KEY": "${BRAVE_API_KEY}",
+        "KAGI_API_KEY": "${KAGI_API_KEY}",
+        "PERPLEXITY_API_KEY": "${PERPLEXITY_API_KEY}",
+        "JINA_AI_API_KEY": "${JINA_AI_API_KEY}"
+      }
+    }
+  }
+}

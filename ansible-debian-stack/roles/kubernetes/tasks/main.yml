@@ -1,0 +1,241 @@
+---
+# Kubernetes role tasks - Install kubectl, kind, kompose, and bash completions
+
+- name: Install bash-completion package
+  apt:
+    name: "{{ bash_completion_package }}"
+    state: present
+    update_cache: true
+  when: install_bash_completion
+  tags:
+    - kubernetes
+    - bash-completion
+
+# kubectl installation
+- name: Install kubectl from Kubernetes repository
+  block:
+    - name: Download Kubernetes GPG key
+      shell: |
+        curl -fsSL {{ kubernetes_gpg_key_url }} | gpg --dearmor -o {{ kubernetes_gpg_key_path }}
+        chmod 644 {{ kubernetes_gpg_key_path }}
+      args:
+        creates: "{{ kubernetes_gpg_key_path }}"
+      tags:
+        - kubernetes
+        - kubectl
+        - repository
+
+    - name: Add Kubernetes repository
+      apt_repository:
+        repo: "deb [signed-by={{ kubernetes_gpg_key_path }}] {{ kubernetes_repo_url }} /"
+        filename: kubernetes
+        state: present
+        update_cache: true
+      tags:
+        - kubernetes
+        - kubectl
+        - repository
+
+    - name: Install kubectl
+      apt:
+        name: kubectl
+        state: present
+        update_cache: false
+      tags:
+        - kubernetes
+        - kubectl
+
+    - name: Hold kubectl package from automatic updates
+      dpkg_selections:
+        name: kubectl
+        selection: hold
+      when: kubectl_hold_package
+      tags:
+        - kubernetes
+        - kubectl
+
+  when: install_kubectl
+
+# kind installation
+- name: Install kind (Kubernetes IN Docker)
+  block:
+    - name: Download kind binary
+      get_url:
+        url: "{{ kind_binary_url }}"
+        dest: "{{ kind_install_path }}"
+        mode: '0755'
+        owner: root
+        group: root
+        timeout: 30
+      register: kind_download
+      until: kind_download is succeeded
+      retries: 3
+      delay: 5
+      tags:
+        - kubernetes
+        - kind
+
+    - name: Verify kind installation
+      command: "{{ kind_install_path }} version"
+      register: kind_version_check
+      changed_when: false
+      tags:
+        - kubernetes
+        - kind
+
+  when: install_kind
+
+# kompose installation
+- name: Install kompose (Compose to Kubernetes converter)
+  block:
+    - name: Download kompose binary
+      get_url:
+        url: "{{ kompose_binary_url }}"
+        dest: "{{ kompose_install_path }}"
+        mode: '0755'
+        owner: root
+        group: root
+        timeout: 30
+      register: kompose_download
+      until: kompose_download is succeeded
+      retries: 3
+      delay: 5
+      tags:
+        - kubernetes
+        - kompose
+
+    - name: Verify kompose installation
+      command: "{{ kompose_install_path }} version"
+      register: kompose_version_check
+      changed_when: false
+      tags:
+        - kubernetes
+        - kompose
+
+  when: install_kompose
+
+# Bash completions setup
+- name: Configure bash completions for Kubernetes tools
+  block:
+    - name: Get user home directories
+      getent:
+        database: passwd
+        key: "{{ item }}"
+      register: user_info
+      loop: "{{ configure_completions_for_users }}"
+      tags:
+        - kubernetes
+        - bash-completion
+
+    - name: Create kubectl completion script
+      shell: kubectl completion bash > /etc/bash_completion.d/kubectl
+      args:
+        creates: /etc/bash_completion.d/kubectl
+      when: install_kubectl
+      tags:
+        - kubernetes
+        - bash-completion
+        - kubectl
+
+    - name: Add kubectl completion to user .bashrc
+      lineinfile:
+        path: "{{ user_info.results[index].ansible_facts.getent_passwd[item][4] }}/.bashrc"
+        line: "source <(kubectl completion bash)"
+        create: true
+        owner: "{{ item }}"
+        group: "{{ item }}"
+      loop: "{{ configure_completions_for_users }}"
+      loop_control:
+        index_var: index
+      when: install_kubectl and install_bash_completion
+      tags:
+        - kubernetes
+        - bash-completion
+        - kubectl
+
+    - name: Add kind completion to user .bashrc
+      lineinfile:
+        path: "{{ user_info.results[index].ansible_facts.getent_passwd[item][4] }}/.bashrc"
+        line: "source <(kind completion bash)"
+        create: true
+        owner: "{{ item }}"
+        group: "{{ item }}"
+      loop: "{{ configure_completions_for_users }}"
+      loop_control:
+        index_var: index
+      when: install_kind and install_bash_completion
+      tags:
+        - kubernetes
+        - bash-completion
+        - kind
+
+    - name: Add Kubernetes aliases to user .bashrc
+      blockinfile:
+        path: "{{ user_info.results[index].ansible_facts.getent_passwd[item][4] }}/.bashrc"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - Kubernetes aliases"
+        block: |
+          # Kubernetes aliases
+          alias k=kubectl
+          alias kgp='kubectl get pods'
+          alias kgs='kubectl get services'
+          alias kgd='kubectl get deployments'
+          complete -o default -F __start_kubectl k
+        create: true
+        owner: "{{ item }}"
+        group: "{{ item }}"
+      loop: "{{ configure_completions_for_users }}"
+      loop_control:
+        index_var: index
+      when: install_kubectl and install_bash_completion
+      tags:
+        - kubernetes
+        - bash-completion
+        - aliases
+
+  when: install_bash_completion and configure_completions_for_users | length > 0
+
+# Validation
+- name: Validate Kubernetes tools installation
+  block:
+    - name: Check kubectl version
+      command: kubectl version --client
+      register: kubectl_version_output
+      changed_when: false
+      when: install_kubectl
+
+    - name: Check kind version
+      command: "{{ kind_install_path }} version"
+      register: kind_version_output
+      changed_when: false
+      when: install_kind
+
+    - name: Check kompose version
+      command: "{{ kompose_install_path }} version"
+      register: kompose_version_output
+      changed_when: false
+      when: install_kompose
+
+    - name: Display Kubernetes tools versions
+      debug:
+        msg:
+          - "=== Kubernetes Tools Installed ==="
+          - "kubectl: {{ kubectl_version_output.stdout if install_kubectl else 'Not installed' }}"
+          - "kind: {{ kind_version_output.stdout if install_kind else 'Not installed' }}"
+          - "kompose: {{ kompose_version_output.stdout if install_kompose else 'Not installed' }}"
+
+    - name: Verify bash completion is available
+      shell: |
+        [ -f /etc/bash_completion.d/kubectl ] && echo "kubectl completion: INSTALLED" || echo "kubectl completion: NOT FOUND"
+      register: completion_check
+      changed_when: false
+      when: install_bash_completion and install_kubectl
+
+    - name: Display completion status
+      debug:
+        msg: "{{ completion_check.stdout }}"
+      when: install_bash_completion and install_kubectl and completion_check is defined
+
+  when: validate_installation
+  tags:
+    - kubernetes
+    - validation

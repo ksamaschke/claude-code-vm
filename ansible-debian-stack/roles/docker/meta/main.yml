@@ -1,0 +1,32 @@
+---
+# Role metadata for docker role
+
+galaxy_info:
+  role_name: docker
+  author: Ansible Automation
+  description: Install Docker CE and Docker Compose plugin on Debian systems
+  company: N/A
+  license: MIT
+  min_ansible_version: "2.10"
+  
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+        - bullseye
+        - buster
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+        - noble
+
+  galaxy_tags:
+    - docker
+    - containers
+    - debian
+    - ubuntu
+    - orchestration
+
+dependencies:
+  - role: common

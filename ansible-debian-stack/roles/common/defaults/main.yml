@@ -1,0 +1,35 @@
+---
+# Default variables for common role
+
+# System update settings
+update_cache: true
+upgrade_packages: safe
+cache_valid_time: 3600
+
+# Essential packages to install
+essential_packages:
+  - curl
+  - wget
+  - gnupg
+  - lsb-release
+  - apt-transport-https
+  - ca-certificates
+  - software-properties-common
+  - build-essential
+  - git
+  - unzip
+  - python3-pip
+
+# Optional packages
+optional_packages:
+  - htop
+  - tree
+  - vim
+
+# System configuration
+configure_timezone: false
+timezone: "UTC"
+
+# Cleanup settings
+remove_unused_packages: true
+autoremove_packages: true

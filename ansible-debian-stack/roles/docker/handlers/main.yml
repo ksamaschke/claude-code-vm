@@ -1,0 +1,14 @@
+---
+# Handlers for docker role
+
+- name: restart docker
+  systemd:
+    name: docker
+    state: restarted
+    daemon_reload: true
+  listen: "restart docker"
+
+- name: notify user of group change
+  debug:
+    msg: "User {{ item }} added to docker group. Please log out and back in for changes to take effect."
+  listen: "notify user of group change"

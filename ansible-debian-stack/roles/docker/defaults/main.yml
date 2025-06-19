@@ -1,0 +1,44 @@
+---
+# Default variables for docker role
+
+# Docker repository configuration
+docker_repo_url: "https://download.docker.com/linux/debian"
+docker_gpg_key_url: "https://download.docker.com/linux/debian/gpg"
+docker_gpg_key_path: "/etc/apt/keyrings/docker.asc"
+docker_repo_file: "/etc/apt/sources.list.d/docker.list"
+
+# Docker packages to install
+docker_packages:
+  - docker-ce
+  - docker-ce-cli
+  - containerd.io
+  - docker-buildx-plugin
+  - docker-compose-plugin
+
+# Conflicting packages to remove
+docker_conflicting_packages:
+  - docker.io
+  - docker-compose
+  - podman-docker
+  - containerd
+  - runc
+
+# Docker daemon configuration
+docker_daemon_config:
+  log-driver: "json-file"
+  log-opts:
+    max-size: "10m"
+    max-file: "3"
+  storage-driver: "overlay2"
+
+# Service management
+docker_services:
+  - docker
+  - containerd
+
+# User management
+docker_users: []
+add_users_to_docker_group: true
+
+# Installation validation
+validate_installation: true

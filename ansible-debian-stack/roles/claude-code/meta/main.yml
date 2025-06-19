@@ -1,0 +1,33 @@
+---
+# Role metadata for claude-code role
+
+galaxy_info:
+  role_name: claude-code
+  author: Ansible Automation
+  description: Install Claude Code npm package globally on Debian/Ubuntu systems
+  company: N/A
+  license: MIT
+  min_ansible_version: "2.10"
+  
+  platforms:
+    - name: Debian
+      versions:
+        - bookworm
+        - bullseye
+        - buster
+    - name: Ubuntu
+      versions:
+        - focal
+        - jammy
+        - noble
+
+  galaxy_tags:
+    - claude-code
+    - anthropic
+    - ai
+    - cli
+    - nodejs
+    - npm
+
+dependencies:
+  - role: nodejs
