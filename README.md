@@ -12,8 +12,8 @@ git clone https://github.com/ksamaschke/claude-code-vm.git
 cd claude-code-vm
 make setup
 
-# Configure Git credentials in .env
-nano .env
+# OPTIONAL: Configure automated Git setup
+nano .env  # Skip this if you prefer manual Git setup
 
 # Deploy to your VM
 make deploy VM_HOST=192.168.1.100 TARGET_USER=developer
@@ -33,7 +33,7 @@ make deploy VM_HOST=192.168.1.100 TARGET_USER=developer
 
 - **Target VM**: Debian 12+ with SSH access
 - **Local**: Ansible installed
-- **Credentials**: Git Personal Access Tokens for at least one provider
+- **Optional**: Git Personal Access Tokens for automated Git setup
 
 ## 🎯 Use Cases
 
@@ -57,16 +57,38 @@ make deploy-docker VM_HOST=your.ip TARGET_USER=user   # Docker only
 
 ## 🔧 Configuration
 
-### Environment File (.env)
+### Environment File (.env) - OPTIONAL
+
+**⚠️ IMPORTANT**: The .env file is **optional** but provides powerful automation:
+
 ```bash
-# Required: At least one Git provider
+# OPTIONAL: Automated Git credential setup
+# These credentials will be securely stored on the target VM
 GIT_SERVER_GITHUB_URL="https://github.com"
 GIT_SERVER_GITHUB_USERNAME="yourusername"
-GIT_SERVER_GITHUB_PAT="your_token"
+GIT_SERVER_GITHUB_PAT="your_token"  # Your Personal Access Token
 
-# Optional: MCP API keys for enhanced functionality
-BRAVE_API_KEY="your_api_key"
+# OPTIONAL: MCP API keys for enhanced AI functionality
+BRAVE_API_KEY="your_api_key"  # For web search capabilities
 ```
+
+**What this does**:
+- **Git credentials**: Automatically configures encrypted Git authentication on the target VM
+- **MCP API keys**: Enables advanced AI features like web search, memory, document processing
+- **Your tokens are stored securely** on the VM using Git Credential Manager encryption
+
+**Without .env file**: System works fine, but you'll need to configure Git authentication manually on each VM.
+
+### MCP Servers (Model Context Protocol)
+
+MCP servers extend Claude Code with powerful capabilities:
+- **🔍 Web Search** - Real-time web search via Brave, Tavily, or other providers
+- **🧠 Memory** - Persistent memory across sessions
+- **📄 Document Processing** - PDF, Word, Excel file handling
+- **🌐 Browser Automation** - Puppeteer for web interaction
+- **🔗 Integrations** - Connect to databases, APIs, and external services
+
+See [MCP Documentation](docs/components-mcp.md) for detailed configuration.
 
 ### Authentication Options
 ```bash
@@ -90,6 +112,7 @@ make deploy VM_HOST=ip TARGET_USER=user USE_SSH_PASSWORD=true SSH_PASSWORD=pass
 - **[🔧 Installation Guide](docs/installation.md)** - Prerequisites and setup
 - **[🔐 Authentication Guide](docs/authentication.md)** - SSH keys, passwords, security
 - **[⚙️ Configuration Guide](docs/configuration.md)** - Environment variables and settings
+- **[🔌 MCP Servers Guide](docs/components-mcp.md)** - Model Context Protocol server setup
 
 ## 🏗️ Project Structure
 
@@ -128,7 +151,9 @@ make check VM_HOST=your.ip TARGET_USER=user
 ssh -v user@your.ip  # Test manually
 ```
 
-**See [Troubleshooting Guide](docs/troubleshooting.md) for more solutions**
+**More Help**:
+- **[MCP Configuration](docs/components-mcp.md)** - Set up AI extensions
+- **[Troubleshooting Guide](docs/troubleshooting.md)** - Common issues and solutions
 
 ## 📄 License
 
