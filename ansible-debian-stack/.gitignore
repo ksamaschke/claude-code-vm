@@ -34,3 +34,8 @@ ansible.log
 # Backup files
 *.bak
 *.backup
+
+# External repositories downloaded by roles
+roles/mcp/claude-code-mcp-management/
+claude-code-mcp-management/
+**/claude-code-mcp-management/

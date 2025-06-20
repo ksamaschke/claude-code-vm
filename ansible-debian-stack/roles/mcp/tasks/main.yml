@@ -55,131 +55,91 @@
     - mcp
     - env-file
 
-- name: Verify Node.js and npm are available
-  command: "{{ item }}"
-  loop:
-    - "node --version"
-    - "npm --version"
-  register: nodejs_check
-  changed_when: false
-  failed_when: nodejs_check.rc != 0
-  become_user: "{{ target_user }}"
+- name: Ensure Ansible is installed for claude-code-mcp-management
+  apt:
+    name: ansible
+    state: present
+  become: true
   tags:
     - mcp
     - prerequisites
 
-- name: Install MCP server packages globally
-  npm:
-    name: "{{ item }}"
-    global: true
-    state: present
-  loop: "{{ mcp_packages }}"
-  become_user: "{{ target_user }}"
-  environment:
-    PATH: "{{ target_user_home }}/.npm-global/bin:{{ ansible_env.PATH }}"
-  when: install_mcp_packages
-  tags:
-    - mcp
-    - packages
-
-- name: Pull Docker images for MCP servers
-  docker_image:
-    name: "{{ item }}"
-    source: pull
-    state: present
-  loop: "{{ mcp_docker_images }}"
-  when: pull_docker_images
-  tags:
-    - mcp
-    - docker
-
-- name: Create Claude Code configuration directory
-  file:
-    path: "{{ mcp_config_dir }}"
-    state: directory
-    owner: "{{ target_user }}"
-    group: "{{ target_user }}"
-    mode: '0755'
-  tags:
-    - mcp
-    - config
-
-- name: Check if MCP configuration already exists
-  stat:
-    path: "{{ mcp_config_file }}"
-  register: existing_mcp_config
-  tags:
-    - mcp
-    - config
-
-- name: Backup existing MCP configuration
-  copy:
-    src: "{{ mcp_config_file }}"
-    dest: "{{ mcp_config_file }}.backup.{{ ansible_date_time.epoch }}"
-    owner: "{{ target_user }}"
-    group: "{{ target_user }}"
-    mode: '0600'
-    remote_src: true
-  when: 
-    - existing_mcp_config.stat.exists
-    - create_backup
-  tags:
-    - mcp
-    - config
-    - backup
-
-- name: Generate MCP servers configuration
-  template:
-    src: mcp-servers.json.j2
-    dest: "{{ mcp_config_file }}"
-    owner: "{{ target_user }}"
-    group: "{{ target_user }}"
-    mode: '0600'
-    backup: "{{ create_backup }}"
-  tags:
-    - mcp
-    - config
-
-- name: Validate MCP configuration syntax
+- name: Configure MCP servers using claude-code-mcp-management
   block:
-    - name: Check JSON syntax
-      shell: "python3 -m json.tool {{ mcp_config_file }} > /dev/null"
+    - name: Check if Claude Code is installed and accessible
+      shell: "bash -c 'source ~/.bashrc && source /etc/profile.d/npm-global.sh && claude --version'"
       become_user: "{{ target_user }}"
+      register: claude_check
       changed_when: false
 
-    - name: Display MCP configuration summary
-      shell: "jq -r '.mcpServers | keys[]' {{ mcp_config_file }}"
-      register: mcp_servers_list
+    - name: Download claude-code-mcp-management repository
+      get_url:
+        url: "https://github.com/ksamaschke/claude-code-mcp-management/archive/refs/heads/main.zip"
+        dest: "{{ target_user_home }}/claude-code-mcp-management.zip"
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: '0644'
+
+    - name: Extract claude-code-mcp-management repository
+      unarchive:
+        src: "{{ target_user_home }}/claude-code-mcp-management.zip"
+        dest: "{{ target_user_home }}/"
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        remote_src: true
+
+    - name: Rename extracted directory
+      command: mv "{{ target_user_home }}/claude-code-mcp-management-main" "{{ target_user_home }}/claude-code-mcp-management"
       become_user: "{{ target_user }}"
-      changed_when: false
+      args:
+        creates: "{{ target_user_home }}/claude-code-mcp-management"
 
-    - name: Show configured MCP servers
-      debug:
-        msg: "Configured MCP servers: {{ mcp_servers_list.stdout_lines | join(', ') }}"
-  when: validate_mcp_config
-  tags:
-    - mcp
-    - validation
+    - name: Check if local mcp-servers.json exists
+      stat:
+        path: "{{ mcp_config_file }}"
+      register: local_mcp_config_exists
 
-- name: Create Claude Code settings directory (alternative location)
-  file:
-    path: "{{ target_user_home }}/.config/claude-code"
-    state: directory
-    owner: "{{ target_user }}"
-    group: "{{ target_user }}"
-    mode: '0755'
-  tags:
-    - mcp
-    - config
+    - name: Generate default MCP servers configuration if none exists locally
+      template:
+        src: mcp-servers.json.j2
+        dest: "{{ mcp_config_file }}"
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: '0600'
+      when: not local_mcp_config_exists.stat.exists
 
-- name: Create symlink for MCP configuration (compatibility)
-  file:
-    src: "{{ mcp_config_file }}"
-    dest: "{{ target_user_home }}/.config/claude-code/mcp-servers.json"
-    state: link
-    owner: "{{ target_user }}"
-    group: "{{ target_user }}"
-    force: true
+    - name: Copy local mcp-servers.json to claude-code-mcp-management
+      copy:
+        src: "{{ mcp_config_file }}"
+        dest: "{{ target_user_home }}/claude-code-mcp-management/mcp-servers.json"
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: '0600'
+        remote_src: true
+
+    - name: Copy environment variables to claude-code-mcp-management if available
+      copy:
+        src: "{{ env_file_path }}"
+        dest: "{{ target_user_home }}/claude-code-mcp-management/.env"
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: '0600'
+        remote_src: true
+      delegate_to: localhost
+      become: false
+      when: env_vars is defined and env_file_path is defined
+
+
+    - name: Run claude-code-mcp-management script
+      shell: |
+        cd {{ target_user_home }}/claude-code-mcp-management
+        export PATH="{{ target_user_home }}/.npm-global/bin:$PATH"
+        bash ./manage-mcp.sh
+      become_user: "{{ target_user }}"
+      environment: "{{ env_vars | default({}) }}"
+      args:
+        executable: /bin/bash
+
   tags:
     - mcp
     - config

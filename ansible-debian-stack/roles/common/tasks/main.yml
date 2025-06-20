@@ -48,11 +48,11 @@
   getent:
     database: passwd
     key: "{{ target_user }}"
-  register: target_user_info
+  register: user_info
 
 - name: Create user directories for global npm packages
   file:
-    path: "{{ target_user_info.ansible_facts.getent_passwd[target_user][4] }}/.npm-global"
+    path: "{{ user_info.ansible_facts.getent_passwd[target_user][4] }}/.npm-global"
     state: directory
     owner: "{{ target_user }}"
     group: "{{ target_user }}"
@@ -82,6 +82,62 @@
   when: remove_unused_packages
   tags:
     - cleanup
+
+- name: Install screen for persistent sessions
+  apt:
+    name: screen
+    state: present
+  tags:
+    - system
+    - screen
+
+- name: Get target user home directory for screen setup
+  getent:
+    database: passwd
+    key: "{{ target_user }}"
+  register: screen_user_info
+  tags:
+    - screen
+    - session-management
+
+- name: Deploy connect-session script for automatic screen attachment
+  copy:
+    src: connect-session.sh
+    dest: "/home/{{ target_user }}/connect-session.sh"
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: '0755'
+  tags:
+    - screen
+    - session-management
+
+- name: Add automatic screen session attachment to .bashrc
+  blockinfile:
+    path: "/home/{{ target_user }}/.bashrc"
+    block: |
+      # Auto-attach to screen session for SSH connections
+      if [[ -n "$SSH_CONNECTION" ]] && [[ -z "$STY" ]] && [[ -z "$TMUX" ]]; then
+          ~/connect-session.sh
+      fi
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - Screen Session Management"
+    create: true
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: '0644'
+  tags:
+    - screen
+    - session-management
+
+- name: Create screen logs directory
+  file:
+    path: "/home/{{ target_user }}/.screen-logs"
+    state: directory
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: '0755'
+  tags:
+    - screen
+    - session-management
 
 - name: Gather system facts for validation
   setup:

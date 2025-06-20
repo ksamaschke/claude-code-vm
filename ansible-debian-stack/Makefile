@@ -11,7 +11,7 @@
 #
 # =============================================================================
 
-.PHONY: help setup check deploy validate clean debug
+.PHONY: help setup check deploy validate clean debug deploy-screen
 
 # Default target
 .DEFAULT_GOAL := help
@@ -245,6 +245,13 @@ deploy-mcp: check-env ## Deploy MCP servers for Claude Code
 	@echo ""
 	@echo "$(GREEN)✅ MCP servers deployment complete!$(NC)"
 	@echo "$(WHITE)Run $(YELLOW)make validate-mcp$(NC) to verify MCP configuration"
+
+deploy-screen: check ## Deploy screen session management
+	@echo "$(CYAN)Deploying screen session management...$(NC)"
+	@ansible-playbook $(PLAYBOOK_DIR)/site.yml --tags screen,session-management
+	@echo ""
+	@echo "$(GREEN)Screen session management deployed!$(NC)"
+	@echo "$(WHITE)Next SSH connection will automatically attach to persistent session 'KS'$(NC)"
 
 # =============================================================================
 # Maintenance & Updates
