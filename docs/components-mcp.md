@@ -6,7 +6,13 @@ Complete guide to Model Context Protocol (MCP) server configuration for enhanced
 
 Model Context Protocol (MCP) servers are external tools that extend Claude Code with specialized capabilities. They run as separate processes and communicate with Claude Code via a standardized protocol.
 
-**MCP Deployment**: This system uses the [claude-code-mcp-management](https://github.com/ksamaschke/claude-code-mcp-management) external project to handle MCP server installation and configuration. This specialized tool automates the complex process of MCP server setup, dependency management, and configuration generation.
+**MCP Deployment**: This system uses the [claude-code-mcp-management](https://github.com/ksamaschke/claude-code-mcp-management) external project to handle MCP server installation and configuration. This specialized tool provides:
+
+- **Flexible configuration management** with custom file paths
+- **Environment variable substitution** using `${VARIABLE_NAME}` syntax
+- **User and project-scoped installations** for different use cases
+- **VM deployment capabilities** for remote server management
+- **JSON-based reliable installation** using Claude Code's `mcp add-json` command
 
 ### Key Benefits
 - **Real-time Data Access** - Web search, APIs, databases
@@ -62,11 +68,11 @@ UPSTASH_REDIS_REST_TOKEN="your_redis_token"
 ```
 
 **How it works**:
-1. System scans `.env` for known API key patterns
-2. Downloads/uses [claude-code-mcp-management](https://github.com/ksamaschke/claude-code-mcp-management) tool
-3. External tool generates `mcp-servers.json` configuration based on available API keys
-4. Only configures MCP servers with valid API keys
-5. Deploys encrypted credentials to target VM
+1. System downloads/uses the latest [claude-code-mcp-management](https://github.com/ksamaschke/claude-code-mcp-management) tool
+2. Copies your local `.env` and `mcp-servers.json` files to the target VM
+3. External tool performs environment variable substitution using `${VARIABLE_NAME}` syntax
+4. Installs MCP servers using Claude Code's reliable `mcp add-json` command
+5. Supports both user-scope (global) and project-scope installations
 
 ### 2. Manual Configuration
 
@@ -136,14 +142,41 @@ Create `mcp-servers.json` in project root:
 
 ### Deploy All MCP Servers
 ```bash
+# Deploy to target VM with default configuration
 make deploy-mcp VM_HOST=your.ip TARGET_USER=user
 ```
 
 ### Deploy with Custom Configuration
 ```bash
+# Use external configuration files
 make deploy-mcp VM_HOST=your.ip TARGET_USER=user \
-    ENV_FILE=/path/to/production.env \
-    MCP_FILE=/path/to/custom-mcp.json
+    ENV_FILE=/secure/configs/production.env \
+    MCP_FILE=/secure/configs/production-mcp.json
+```
+
+### Advanced Deployment Options
+
+The deployed claude-code-mcp-management tool supports advanced operations on the target VM:
+
+```bash
+# After deployment, you can SSH to the VM and use:
+ssh user@your.ip
+cd ~/.claude-code-vm/claude-code-mcp-management
+
+# List current MCP servers
+make list
+
+# Add specific servers
+make add SERVERS=memory,brave-search
+
+# Sync all servers from configuration
+make sync
+
+# Preview changes without applying
+make dry-run
+
+# Use external configuration files on the VM
+make sync CONFIG_FILE=/path/to/custom.json ENV_FILE=/path/to/custom.env
 ```
 
 ### Component-Only Deployment
@@ -311,16 +344,23 @@ UPSTASH_REDIS_REST_TOKEN="prod_redis_token"
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-brave-search"],
       "env": {
-        "BRAVE_API_KEY": "{{ BRAVE_API_KEY }}"
+        "BRAVE_API_KEY": "${BRAVE_API_KEY}"
       }
     },
     "memory": {
+      "type": "stdio",
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-memory"]
+    },
+    "sequential-thinking": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-sequential-thinking"]
     }
   }
 }
 ```
+
+**Note**: The claude-code-mcp-management tool uses `${VARIABLE_NAME}` syntax (not `{{ }}`) for environment variable substitution.
 
 #### Benefits of External Configuration
 
@@ -339,12 +379,26 @@ UPSTASH_REDIS_REST_TOKEN="prod_redis_token"
 
 #### Integration with claude-code-mcp-management
 
-The external [claude-code-mcp-management](https://github.com/ksamaschke/claude-code-mcp-management) tool automatically handles:
-- **Custom file paths**: Reads from ENV_FILE and MCP_FILE locations
-- **Environment variable substitution**: Replaces placeholders in MCP configurations
-- **Dependency management**: Installs required npm packages and Docker images
-- **Configuration validation**: Ensures all required API keys are present
-- **Error handling**: Provides detailed feedback on configuration issues
+The external [claude-code-mcp-management](https://github.com/ksamaschke/claude-code-mcp-management) tool provides advanced capabilities:
+
+**Configuration Management**:
+- **Custom file paths**: Supports CONFIG_FILE and ENV_FILE variables
+- **Environment variable substitution**: Uses `${VARIABLE_NAME}` syntax in MCP configurations
+- **Flexible deployment**: Can deploy to local machine or remote VMs
+- **Dual-scope support**: User-scope (global) and project-scope installations
+
+**Advanced Features**:
+- **Dry-run mode**: Preview changes before applying them
+- **Batch operations**: Add/remove multiple servers simultaneously 
+- **JSON validation**: Ensures configuration syntax is correct
+- **Cleanup functionality**: Removes orphaned servers automatically
+- **VM deployment**: Deploy MCP configurations to remote VMs via SSH/Ansible
+
+**Deployment Capabilities**:
+- **Single VM deployment**: Direct SSH with `VM=user@host` syntax
+- **Group deployment**: Deploy to multiple VMs using Ansible inventory
+- **SSH configuration hierarchy**: Command line → .env → Ansible inventory
+- **Flexible deployment directories**: Configurable target paths
 
 ## Performance Optimization
 

@@ -11,20 +11,20 @@ use_env_file: true
 env_file_path: "{{ custom_env_file | default(playbook_dir + '/../.env') }}"
 mcp_servers_file: "{{ custom_mcp_servers_file | default(playbook_dir + '/../mcp-servers.json') }}"
 
-# MCP server package installation
-install_mcp_packages: true
-mcp_packages:
-  - "@modelcontextprotocol/server-sequential-thinking"
-  - "@modelcontextprotocol/server-memory"
-  - "@modelcontextprotocol/server-brave-search"
-  - "@upstash/context7-mcp"
-  - "@cablate/mcp-doc-forge"
-  - "mcp-omnisearch"
+# claude-code-mcp-management tool configuration
+mcp_management_dir: "{{ target_user_home }}/claude-code-mcp-management"
+mcp_scope: "user"  # Can be 'user' or 'project'
+mcp_project_path: "."  # Only used when scope is 'project'
 
-# Docker configuration for MCP servers
-pull_docker_images: true
-mcp_docker_images:
-  - "mcp/puppeteer"
+# MCP server package installation (deprecated - now handled by claude-code-mcp-management)
+# These are kept for reference but not used in the new implementation
+install_mcp_packages: false
+mcp_packages: []
+
+# Docker configuration for MCP servers (deprecated - now handled by claude-code-mcp-management)
+# These are kept for reference but not used in the new implementation
+pull_docker_images: false
+mcp_docker_images: []
 
 # Validation settings
 validate_mcp_config: true
