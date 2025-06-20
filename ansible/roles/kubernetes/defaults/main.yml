@@ -11,11 +11,24 @@ kubernetes_gpg_key_path: "/etc/apt/keyrings/kubernetes-apt-keyring.gpg"
 install_kubectl: true
 kubectl_hold_package: true  # Prevent automatic updates
 
-# kind configuration
-install_kind: true
+# kind configuration (optional)
+install_kind: false  # Made optional, k3s is preferred
 kind_version: "v0.29.0"
 kind_binary_url: "https://kind.sigs.k8s.io/dl/{{ kind_version }}/kind-linux-amd64"
 kind_install_path: "/usr/local/bin/kind"
+
+# k3s configuration (preselected)
+install_k3s: true
+# Version control (choose one approach):
+k3s_version: ""                    # Specific version (e.g., "v1.31.3+k3s1") or empty for latest
+k3s_channel: ""                    # Channel-based install ("stable", "latest", "testing") or empty
+# Note: If both are empty, installs latest stable. If k3s_version is set, it takes priority over k3s_channel.
+k3s_install_script_url: "https://get.k3s.io"
+k3s_config_dir: "/etc/rancher/k3s"
+k3s_kubeconfig_path: "/etc/rancher/k3s/k3s.yaml"
+k3s_user_kubeconfig_path: "{{ target_user_home }}/.kube/config"  # Configurable user kubeconfig location
+k3s_data_dir: "/var/lib/rancher/k3s"
+k3s_service_name: "k3s"
 
 # kompose configuration
 install_kompose: true

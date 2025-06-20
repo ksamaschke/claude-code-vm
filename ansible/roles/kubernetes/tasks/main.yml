@@ -114,6 +114,92 @@
 
   when: install_kompose
 
+# k3s installation
+- name: Install k3s (Lightweight Kubernetes)
+  block:
+    - name: Check if k3s is already installed
+      command: k3s --version
+      register: k3s_check
+      failed_when: false
+      changed_when: false
+      tags:
+        - kubernetes
+        - k3s
+
+    - name: Build k3s installation command
+      set_fact:
+        k3s_install_env: |
+          {% if k3s_version %}
+          INSTALL_K3S_VERSION={{ k3s_version }}
+          {% elif k3s_channel %}
+          INSTALL_K3S_CHANNEL={{ k3s_channel }}
+          {% endif %}
+      when: k3s_check.rc != 0
+      tags:
+        - kubernetes
+        - k3s
+
+    - name: Download and install k3s
+      shell: |
+        curl -sfL {{ k3s_install_script_url }} | {{ k3s_install_env | trim }} sh -
+      when: k3s_check.rc != 0
+      tags:
+        - kubernetes
+        - k3s
+
+    - name: Ensure k3s service is started and enabled
+      systemd:
+        name: "{{ k3s_service_name }}"
+        state: started
+        enabled: true
+        daemon_reload: true
+      tags:
+        - kubernetes
+        - k3s
+
+    - name: Create k3s config directory for target user
+      file:
+        path: "{{ target_user_home }}/.kube"
+        state: directory
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: '0755'
+      tags:
+        - kubernetes
+        - k3s
+
+    - name: Copy k3s kubeconfig for target user
+      copy:
+        src: "{{ k3s_kubeconfig_path }}"
+        dest: "{{ k3s_user_kubeconfig_path }}"
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: '0600'
+        remote_src: true
+      tags:
+        - kubernetes
+        - k3s
+
+    - name: Add target user to k3s group (if exists)
+      user:
+        name: "{{ target_user }}"
+        groups: k3s
+        append: true
+      failed_when: false  # Group might not exist
+      tags:
+        - kubernetes
+        - k3s
+
+    - name: Verify k3s installation
+      command: k3s kubectl version --short
+      register: k3s_version_check
+      changed_when: false
+      tags:
+        - kubernetes
+        - k3s
+
+  when: install_k3s
+
 # Bash completions setup
 - name: Configure bash completions for Kubernetes tools
   block:
@@ -169,24 +255,48 @@
         - bash-completion
         - kind
 
-    - name: Add Kubernetes aliases to user .bashrc
-      blockinfile:
+    - name: Add k3s kubectl completion to user .bashrc
+      lineinfile:
         path: "{{ user_info.results[index].ansible_facts.getent_passwd[item][4] }}/.bashrc"
-        marker: "# {mark} ANSIBLE MANAGED BLOCK - Kubernetes aliases"
-        block: |
-          # Kubernetes aliases
-          alias k=kubectl
-          alias kgp='kubectl get pods'
-          alias kgs='kubectl get services'
-          alias kgd='kubectl get deployments'
-          complete -o default -F __start_kubectl k
+        line: "source <(k3s kubectl completion bash)"
         create: true
         owner: "{{ item }}"
         group: "{{ item }}"
       loop: "{{ configure_completions_for_users }}"
       loop_control:
         index_var: index
-      when: install_kubectl and install_bash_completion
+      when: install_k3s and install_bash_completion
+      tags:
+        - kubernetes
+        - bash-completion
+        - k3s
+
+    - name: Add Kubernetes aliases to user .bashrc
+      blockinfile:
+        path: "{{ user_info.results[index].ansible_facts.getent_passwd[item][4] }}/.bashrc"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - Kubernetes aliases"
+        block: |
+          # Kubernetes aliases (kubectl or k3s kubectl)
+          {% if install_k3s %}
+          alias k='k3s kubectl'
+          alias kubectl='k3s kubectl'
+          alias kgp='k3s kubectl get pods'
+          alias kgs='k3s kubectl get services'
+          alias kgd='k3s kubectl get deployments'
+          {% else %}
+          alias k=kubectl
+          alias kgp='kubectl get pods'
+          alias kgs='kubectl get services'
+          alias kgd='kubectl get deployments'
+          complete -o default -F __start_kubectl k
+          {% endif %}
+        create: true
+        owner: "{{ item }}"
+        group: "{{ item }}"
+      loop: "{{ configure_completions_for_users }}"
+      loop_control:
+        index_var: index
+      when: (install_kubectl or install_k3s) and install_bash_completion
       tags:
         - kubernetes
         - bash-completion
@@ -215,12 +325,19 @@
       changed_when: false
       when: install_kompose
 
+    - name: Check k3s version
+      command: k3s --version
+      register: k3s_version_output
+      changed_when: false
+      when: install_k3s
+
     - name: Display Kubernetes tools versions
       debug:
         msg:
           - "=== Kubernetes Tools Installed ==="
           - "kubectl: {{ kubectl_version_output.stdout if install_kubectl else 'Not installed' }}"
           - "kind: {{ kind_version_output.stdout if install_kind else 'Not installed' }}"
+          - "k3s: {{ k3s_version_output.stdout if install_k3s else 'Not installed' }}"
           - "kompose: {{ kompose_version_output.stdout if install_kompose else 'Not installed' }}"
 
     - name: Verify bash completion is available

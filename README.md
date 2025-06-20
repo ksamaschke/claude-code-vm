@@ -25,7 +25,7 @@ make deploy VM_HOST=192.168.1.100 TARGET_USER=developer
 - **Docker & Docker Compose** - Container development environment
 - **Node.js 22 LTS** - Latest LTS with global package support
 - **Git with Multi-Provider Support** - GitHub, GitLab, Azure DevOps, Bitbucket, custom servers
-- **Kubernetes Tools** - kubectl, kind, kompose with bash completions
+- **Kubernetes Tools** - kubectl, k3s (lightweight), kompose with bash completions
 - **MCP Servers** - Search, memory, document processing, browser automation
 - **Persistent Sessions** - Screen-based terminal sessions that survive disconnects
 

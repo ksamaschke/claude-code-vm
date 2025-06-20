@@ -15,7 +15,7 @@ This repository contains an **Ansible-based deployment system** that automates t
   - `docker`: Docker CE with Docker Compose
   - `nodejs`: Node.js 22 LTS with npm global packages
   - `claude-code`: Claude Code CLI installation
-  - `kubernetes`: kubectl, kind, kompose with bash completions
+  - `kubernetes`: kubectl, k3s (preselected), kind (optional), kompose with bash completions
 - **Environment Configuration**: URL-based PAT system via `.env` file
 - **MCP Server Support**: `mcp-servers.json` for Claude Code extensions
 
