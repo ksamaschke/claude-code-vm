@@ -2,18 +2,20 @@
 # Claude Code VM Deployment Makefile
 # =============================================================================
 # 
-# Configurable deployment system for Claude Code development environments
+# Streamlined deployment system for Claude Code development environments
 # 
 # Usage Examples:
-#   make deploy                                    # Deploy with defaults
-#   make deploy VM_HOST=192.168.1.100             # Custom VM host
-#   make deploy-mcp ENV_FILE=/path/to/.env         # Custom env file
-#   make deploy-mcp MCP_FILE=/path/to/mcp.json     # Custom MCP config
-#   make deploy TARGET_USER=myuser                 # Custom target user
+#   make deploy VM_HOST=192.168.1.100 TARGET_USER=dev    # Full deployment
+#   make validate VM_HOST=192.168.1.100 TARGET_USER=dev  # Validate deployment
+#   make setup                                           # First-time setup
+#
+# For component-specific deployments, use Ansible directly with tags:
+#   ansible-playbook ansible/playbooks/site.yml --tags git
+#   ansible-playbook ansible/playbooks/site.yml --tags docker,nodejs
 #
 # =============================================================================
 
-.PHONY: help deploy deploy-mcp deploy-screen validate dry-run clean setup setup-mcp-tool generate-mcp-config
+.PHONY: help deploy validate clean setup check-config test-connection create-dynamic-inventory deploy-mcp setup-mcp-tool generate-mcp-config
 
 # Default target
 .DEFAULT_GOAL := help
@@ -97,6 +99,20 @@ ifneq ($(MCP_FILE),mcp-servers.json)
 	EXTRA_VARS += custom_mcp_servers_file=$(MCP_FILE)
 endif
 
+# Add user configuration options
+ifneq ($(CREATE_USER_CLAUDE_CONFIG),)
+	EXTRA_VARS += create_user_claude_config=$(CREATE_USER_CLAUDE_CONFIG)
+endif
+
+ifneq ($(ALLOW_COMMAND_EXECUTION),)
+	EXTRA_VARS += allow_command_execution=$(ALLOW_COMMAND_EXECUTION)
+endif
+
+# Add package management options
+ifneq ($(SKIP_PACKAGE_UPGRADE),)
+	EXTRA_VARS += upgrade_packages=false
+endif
+
 # =============================================================================
 # Help & Information
 # =============================================================================
@@ -105,49 +121,50 @@ help: ## Show this help message
 	@echo "$(CYAN)║                    Claude Code VM Deployment System                       ║$(NC)"
 	@echo "$(CYAN)╚════════════════════════════════════════════════════════════════════════════╝$(NC)"
 	@echo ""
-	@echo "$(WHITE)📋 Available Commands:$(NC)"
+	@echo "$(WHITE)📋 Essential Commands:$(NC)"
 	@echo ""
 	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z_-]+:.*##/ { \
 		printf "  $(GREEN)%-20s$(NC) %s\n", $$1, $$2 \
 	}' $(MAKEFILE_LIST)
 	@echo ""
-	@echo "$(WHITE)🎯 Configuration Variables:$(NC)"
+	@echo "$(WHITE)🎯 Required Variables:$(NC)"
 	@echo "  $(YELLOW)VM_HOST$(NC)         Target VM IP address (REQUIRED)"
-	@echo "  $(YELLOW)VM_USER$(NC)         SSH user for deployment (default: $(VM_USER))"
 	@echo "  $(YELLOW)TARGET_USER$(NC)     Target user on VM (REQUIRED)"
-	@echo "  $(YELLOW)DEPLOY_TARGET$(NC)   Deployment target: single/production/staging (default: $(DEPLOY_TARGET))"
-	@echo "  $(YELLOW)ENV_FILE$(NC)        Environment file path (default: $(ENV_FILE))"
-	@echo "  $(YELLOW)MCP_FILE$(NC)        MCP servers config file (default: $(MCP_FILE))"
-	@echo "  $(YELLOW)SESSION_NAME$(NC)    Screen session name (default: $(SESSION_NAME))"
-	@echo "  $(YELLOW)DEPLOYMENT_DIR$(NC)  Remote deployment directory (default: $(DEPLOYMENT_DIR))"
-	@echo "  $(YELLOW)TEMP_BASE_PATH$(NC)  Temporary files base directory (default: $(TEMP_BASE_PATH))"
 	@echo ""
-	@echo "$(WHITE)🔐 Authentication Options:$(NC)"
-	@echo "  $(YELLOW)CONNECT_AS_TARGET$(NC)    Connect directly as target user (default: $(CONNECT_AS_TARGET))"
+	@echo "$(WHITE)🔧 Optional Variables:$(NC)"
+	@echo "  $(YELLOW)VM_USER$(NC)         SSH user for deployment (default: $(VM_USER))"
+	@echo "  $(YELLOW)ENV_FILE$(NC)        Environment file path (default: $(ENV_FILE))"
 	@echo "  $(YELLOW)TARGET_SSH_KEY$(NC)       SSH key for target user (optional)"
 	@echo "  $(YELLOW)USE_SSH_PASSWORD$(NC)     Use password instead of key (default: $(USE_SSH_PASSWORD))"
-	@echo "  $(YELLOW)SSH_PASSWORD$(NC)         SSH password (if USE_SSH_PASSWORD=true)"
 	@echo "  $(YELLOW)USE_BECOME_PASSWORD$(NC)  Sudo requires password (default: $(USE_BECOME_PASSWORD))"
-	@echo "  $(YELLOW)BECOME_PASSWORD$(NC)      Sudo password (if USE_BECOME_PASSWORD=true)"
 	@echo ""
-	@echo "$(WHITE)📝 Usage Examples:$(NC)"
-	@echo "  $(CYAN)# Single machine deployment (most common):$(NC)"
+	@echo "$(WHITE)📝 Common Usage Examples:$(NC)"
+	@echo "  $(CYAN)# Complete deployment:$(NC)"
 	@echo "  $(CYAN)make deploy VM_HOST=192.168.1.100 TARGET_USER=developer$(NC)"
-	@echo "  $(CYAN)make deploy-mcp VM_HOST=10.0.1.5 TARGET_USER=user ENV_FILE=/path/to/.env$(NC)"
 	@echo ""
-	@echo "  $(CYAN)# Authentication variations:$(NC)"
-	@echo "  $(CYAN)make deploy VM_HOST=10.0.1.5 TARGET_USER=dev CONNECT_AS_TARGET=true$(NC)"
-	@echo "  $(CYAN)make deploy VM_HOST=10.0.1.5 TARGET_USER=dev TARGET_SSH_KEY=~/.ssh/dev_key$(NC)"
-	@echo "  $(CYAN)make deploy VM_HOST=10.0.1.5 TARGET_USER=dev USE_SSH_PASSWORD=true SSH_PASSWORD=secret$(NC)"
-	@echo "  $(CYAN)make deploy VM_HOST=10.0.1.5 TARGET_USER=dev USE_BECOME_PASSWORD=true BECOME_PASSWORD=sudo123$(NC)"
+	@echo "  $(CYAN)# First-time setup:$(NC)"
+	@echo "  $(CYAN)make setup$(NC)"
+	@echo "  $(CYAN)# Edit .env file with your credentials, then:$(NC)"
+	@echo "  $(CYAN)make deploy VM_HOST=192.168.1.100 TARGET_USER=developer$(NC)"
 	@echo ""
-	@echo "  $(CYAN)# Group deployment (multiple machines):$(NC)"
-	@echo "  $(CYAN)make deploy DEPLOY_TARGET=production$(NC)"
-	@echo "  $(CYAN)make deploy DEPLOY_TARGET=staging$(NC)"
+	@echo "  $(CYAN)# Validate existing deployment:$(NC)"
+	@echo "  $(CYAN)make validate VM_HOST=192.168.1.100 TARGET_USER=developer$(NC)"
 	@echo ""
-	@echo "  $(CYAN)# Custom temporary directory:$(NC)"
-	@echo "  $(CYAN)make deploy VM_HOST=10.0.1.5 TARGET_USER=dev TEMP_BASE_PATH=/tmp$(NC)"
-	@echo "  $(CYAN)make deploy VM_HOST=10.0.1.5 TARGET_USER=dev TEMP_BASE_PATH=~/tmp$(NC)"
+	@echo "$(WHITE)⚙️ Component-Specific Deployments (Use Ansible Directly):$(NC)"
+	@echo "  $(CYAN)# Available tags: common, git, docker, nodejs, claude-code, kubernetes, mcp$(NC)"
+	@echo "  $(CYAN)ansible-playbook ansible/playbooks/site.yml --tags git$(NC)"
+	@echo "  $(CYAN)ansible-playbook ansible/playbooks/site.yml --tags docker,nodejs$(NC)"
+	@echo "  $(CYAN)ansible-playbook ansible/playbooks/site.yml --tags kubernetes,mcp$(NC)"
+	@echo ""
+	@echo "$(WHITE)🔍 Advanced Ansible Usage:$(NC)"
+	@echo "  $(CYAN)# Dry run (check mode):$(NC)"
+	@echo "  $(CYAN)ansible-playbook ansible/playbooks/site.yml --check --diff$(NC)"
+	@echo ""
+	@echo "  $(CYAN)# Deploy with custom variables:$(NC)"
+	@echo "  $(CYAN)ansible-playbook ansible/playbooks/site.yml -e vm_host=192.168.1.100 -e target_vm_user=dev$(NC)"
+	@echo ""
+	@echo "  $(CYAN)# Use custom inventory file:$(NC)"
+	@echo "  $(CYAN)ansible-playbook ansible/playbooks/site.yml -i your_inventory.yml$(NC)"
 
 # =============================================================================
 # Main Deployment Commands
@@ -175,96 +192,6 @@ deploy: check-config test-connection create-dynamic-inventory ## Deploy complete
 	@echo ""
 	@echo "$(GREEN)✅ Deployment complete!$(NC)"
 
-deploy-mcp: check-config test-connection setup-mcp-tool deploy-claude ## Deploy MCP servers only (requires Claude Code)
-	@echo "$(CYAN)🔌 Deploying MCP servers using claude-code-mcp-management...$(NC)"
-	@DEPLOY_USER="$(if $(and $(filter root,$(VM_USER)),$(TARGET_USER)),$(TARGET_USER),$(VM_USER))"; \
-	SSH_OPTS="-o StrictHostKeyChecking=no"; \
-	if [ -n "$(TARGET_SSH_KEY)" ]; then \
-		SSH_OPTS="$$SSH_OPTS -i $(TARGET_SSH_KEY)"; \
-	fi; \
-	echo "$(WHITE)Target: $(YELLOW)$$DEPLOY_USER@$(VM_HOST)$(NC)"; \
-	echo "$(WHITE)Env File: $(YELLOW)$(ENV_FILE)$(NC)"; \
-	echo "$(WHITE)MCP File: $(YELLOW)$(MCP_FILE)$(NC)"; \
-	echo "$(WHITE)SSH Options: $(YELLOW)$$SSH_OPTS$(NC)"; \
-	echo ""; \
-	echo "$(WHITE)🎯 Step 1: Installing dependencies on VM...$(NC)"; \
-	ssh $$SSH_OPTS $$DEPLOY_USER@$(VM_HOST) 'sudo apt update && sudo apt install -y pipx && pipx install uv && pipx ensurepath && echo "uv installed via pipx"'; \
-	echo ""; \
-	echo "$(WHITE)🎯 Step 2: Creating deployment directory...$(NC)"; \
-	ssh $$SSH_OPTS $$DEPLOY_USER@$(VM_HOST) 'mkdir -p /home/'$$DEPLOY_USER'/mcp-manager'; \
-	echo ""; \
-	echo "$(WHITE)🎯 Step 3: Copying tool files to VM...$(NC)"; \
-	rsync -avz --exclude='.git' --exclude='__pycache__' --exclude='*.pyc' -e "ssh $$SSH_OPTS" tools/claude-code-mcp-management/ $$DEPLOY_USER@$(VM_HOST):/home/$$DEPLOY_USER/mcp-manager/; \
-	echo ""; \
-	echo "$(WHITE)🎯 Step 4: Copying configuration files to VM...$(NC)"; \
-	scp $$SSH_OPTS $(MCP_FILE) $$DEPLOY_USER@$(VM_HOST):/home/$$DEPLOY_USER/mcp-manager/mcp-servers.json; \
-	scp $$SSH_OPTS $(ENV_FILE) $$DEPLOY_USER@$(VM_HOST):/home/$$DEPLOY_USER/mcp-manager/.env; \
-	echo ""; \
-	echo "$(WHITE)🎯 Step 5: Setting execute permissions on scripts...$(NC)"; \
-	ssh $$SSH_OPTS $$DEPLOY_USER@$(VM_HOST) 'chmod +x /home/'$$DEPLOY_USER'/mcp-manager/scripts/*.sh'; \
-	echo ""; \
-	echo "$(WHITE)🎯 Step 6: Running dependency check on the VM...$(NC)"; \
-	ssh $$SSH_OPTS $$DEPLOY_USER@$(VM_HOST) 'cd /home/'$$DEPLOY_USER'/mcp-manager && export PATH="/home/'$$DEPLOY_USER'/.local/bin:/home/'$$DEPLOY_USER'/.npm-global/bin:$$PATH" && export LC_ALL=C.UTF-8 && export LANG=C.UTF-8 && make check || echo "Dependencies check completed with warnings"'; \
-	echo ""; \
-	echo "$(WHITE)🎯 Step 7: Running MCP sync on the VM...$(NC)"; \
-	ssh $$SSH_OPTS $$DEPLOY_USER@$(VM_HOST) 'cd /home/'$$DEPLOY_USER'/mcp-manager && export PATH="/home/'$$DEPLOY_USER'/.local/bin:/home/'$$DEPLOY_USER'/.npm-global/bin:$$PATH" && export LC_ALL=C.UTF-8 && export LANG=C.UTF-8 && make sync CONFIG_FILE=/home/'$$DEPLOY_USER'/mcp-manager/mcp-servers.json ENV_FILE=/home/'$$DEPLOY_USER'/mcp-manager/.env SCOPE=user'; \
-	echo ""; \
-	echo "$(GREEN)✅ MCP deployment complete!$(NC)"
-
-deploy-screen: check-config test-connection create-dynamic-inventory ## Deploy screen session management
-	@echo "$(CYAN)📺 Deploying screen sessions...$(NC)"
-	@echo "$(WHITE)Target: $(YELLOW)$(DEPLOY_TARGET)$(NC)"
-	@echo "$(WHITE)Session Name: $(YELLOW)$(SESSION_NAME)$(NC)"
-	@timeout 300 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml --tags screen,session-management -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS)" $(LIMIT_FLAG) || { \
-		echo "$(RED)❌ Screen deployment failed$(NC)"; \
-		echo "$(YELLOW)💡 Run 'make test-connection' to verify VM status$(NC)"; \
-		exit 1; \
-	}
-	@echo ""
-	@echo "$(GREEN)✅ Screen sessions deployed!$(NC)"
-
-# =============================================================================
-# Component-specific Deployments
-# =============================================================================
-deploy-git: check-config test-connection create-dynamic-inventory ## Deploy Git configuration only
-	@echo "$(CYAN)🔐 Deploying Git configuration...$(NC)"
-	@timeout 300 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml --tags git -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS)" $(LIMIT_FLAG) || { \
-		echo "$(RED)❌ Git deployment failed$(NC)"; \
-		echo "$(YELLOW)💡 Run 'make test-connection' to verify VM status$(NC)"; \
-		exit 1; \
-	}
-
-deploy-docker: check-config test-connection create-dynamic-inventory ## Deploy Docker only
-	@echo "$(CYAN)🐳 Deploying Docker...$(NC)"
-	@timeout 600 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml --tags docker -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS)" $(LIMIT_FLAG) || { \
-		echo "$(RED)❌ Docker deployment failed$(NC)"; \
-		echo "$(YELLOW)💡 Run 'make test-connection' to verify VM status$(NC)"; \
-		exit 1; \
-	}
-
-deploy-nodejs: check-config test-connection create-dynamic-inventory ## Deploy Node.js only
-	@echo "$(CYAN)📦 Deploying Node.js...$(NC)"
-	@timeout 600 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml --tags nodejs -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS)" $(LIMIT_FLAG) || { \
-		echo "$(RED)❌ Node.js deployment failed$(NC)"; \
-		echo "$(YELLOW)💡 Run 'make test-connection' to verify VM status$(NC)"; \
-		exit 1; \
-	}
-
-deploy-claude: check-config test-connection create-dynamic-inventory ## Deploy Claude Code only
-	@echo "$(CYAN)🤖 Deploying Claude Code...$(NC)"
-	@timeout 600 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml --tags claude-code -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS)" $(LIMIT_FLAG) || { \
-		echo "$(RED)❌ Claude Code deployment failed$(NC)"; \
-		echo "$(YELLOW)💡 Run 'make test-connection' to verify VM status$(NC)"; \
-		exit 1; \
-	}
-
-deploy-k8s: check-config test-connection create-dynamic-inventory ## Deploy Kubernetes tools only
-	@echo "$(CYAN)☸️ Deploying Kubernetes tools...$(NC)"
-	@timeout 600 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml --tags kubernetes -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS)" $(LIMIT_FLAG) || { \
-		echo "$(RED)❌ Kubernetes deployment failed$(NC)"; \
-		echo "$(YELLOW)💡 Run 'make test-connection' to verify VM status$(NC)"; \
-		exit 1; \
-	}
 
 # =============================================================================
 # Validation & Testing
@@ -277,21 +204,6 @@ validate: check-config test-connection create-dynamic-inventory ## Validate depl
 		exit 1; \
 	}
 
-dry-run: check-config create-dynamic-inventory ## Perform dry-run of deployment without making changes
-	@echo "$(CYAN)🔍 Performing dry-run deployment...$(NC)"
-	@echo "$(WHITE)Target: $(YELLOW)$(DEPLOY_TARGET)$(NC)"
-	@echo "$(WHITE)Host: $(YELLOW)$(if $(and $(filter root,$(VM_USER)),$(TARGET_USER)),$(TARGET_USER),$(VM_USER))@$(VM_HOST)$(NC)"
-	@echo "$(WHITE)User: $(YELLOW)$(TARGET_USER)$(NC)"
-	@echo ""
-	@echo "$(WHITE)🎯 Running Ansible dry-run (check mode)...$(NC)"
-	@$(ANSIBLE_PLAYBOOK) --check --diff $(PLAYBOOK_DIR)/site.yml -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS)" $(LIMIT_FLAG) || { \
-		echo "$(RED)❌ Dry-run failed - configuration issues detected$(NC)"; \
-		echo "$(YELLOW)💡 Review the output above for undefined variables or other issues$(NC)"; \
-		exit 1; \
-	}
-	@echo ""
-	@echo "$(GREEN)✅ Dry-run completed successfully!$(NC)"
-	@echo "$(WHITE)No undefined variables or configuration issues detected$(NC)"
 
 check-config: ## Validate configuration and connectivity
 	@echo "$(WHITE)🔍 Checking configuration...$(NC)"
@@ -388,34 +300,79 @@ test-connection: ## Test network connectivity to target VM
 	echo "$(GREEN)✅ Connectivity test completed successfully!$(NC)"; \
 	echo "$(WHITE)Ready to deploy to $(YELLOW)$$TEST_USER@$(VM_HOST)$(NC)"
 
-test-ansible: ## Test Ansible connectivity with proper timeout
-	@echo "$(WHITE)🔍 Testing Ansible connectivity...$(NC)"
-	@timeout 30 ansible $(DEPLOY_TARGET) -m ping -e "$(EXTRA_VARS)" $(LIMIT_FLAG) || { \
-		echo "$(RED)❌ Ansible connection failed$(NC)"; \
-		echo "$(YELLOW)💡 Run 'make test-connection' for detailed diagnostics$(NC)"; \
+
+
+# =============================================================================
+# MCP (Model Context Protocol) Management
+# =============================================================================
+deploy-mcp: check-config test-connection create-dynamic-inventory ## Deploy MCP servers only (requires Claude Code)
+	@echo "$(CYAN)🤖 Deploying MCP servers...$(NC)"
+	@echo "$(WHITE)Target: $(YELLOW)$(DEPLOY_TARGET)$(NC)"
+	@echo "$(WHITE)Host: $(YELLOW)$(if $(and $(filter root,$(VM_USER)),$(TARGET_USER)),$(TARGET_USER),$(VM_USER))@$(VM_HOST)$(NC)"
+	@echo "$(WHITE)User: $(YELLOW)$(TARGET_USER)$(NC)"
+	@echo ""
+	@echo "$(WHITE)🎯 Deploying MCP servers with Ansible...$(NC)"
+	@timeout 600 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS)" $(LIMIT_FLAG) --tags mcp || { \
+		echo "$(RED)❌ MCP deployment failed$(NC)"; \
+		echo "$(YELLOW)💡 Possible issues:$(NC)"; \
+		echo "$(YELLOW)  - Claude Code not installed (deploy full stack first)$(NC)"; \
+		echo "$(YELLOW)  - Missing MCP configuration or environment variables$(NC)"; \
+		echo "$(YELLOW)  - Network connectivity issues$(NC)"; \
+		echo "$(YELLOW)🔧 Troubleshooting:$(NC)"; \
+		echo "$(YELLOW)  - Run 'make deploy' for full stack first$(NC)"; \
+		echo "$(YELLOW)  - Check $(ENV_FILE) and $(MCP_FILE) files$(NC)"; \
+		echo "$(YELLOW)  - Run 'make test-connection' to verify VM status$(NC)"; \
 		exit 1; \
 	}
-	@echo "$(GREEN)✅ Ansible connectivity confirmed$(NC)"
+	@echo ""
+	@echo "$(GREEN)✅ MCP servers deployed successfully!$(NC)"
 
-# =============================================================================
-# MCP Tool Setup (Local)
-# =============================================================================
 setup-mcp-tool: ## Setup claude-code-mcp-management tool locally
-	@echo "$(WHITE)🔧 Setting up claude-code-mcp-management tool locally...$(NC)"
+	@echo "$(CYAN)🛠️  Setting up MCP management tool locally...$(NC)"
 	@if [ ! -d "tools/claude-code-mcp-management" ]; then \
-		echo "$(YELLOW)📥 Downloading claude-code-mcp-management...$(NC)"; \
-		mkdir -p tools; \
-		cd tools && git clone https://github.com/ksamaschke/claude-code-mcp-management.git; \
-		echo "$(GREEN)✅ Downloaded claude-code-mcp-management$(NC)"; \
-	else \
-		echo "$(GREEN)✅ claude-code-mcp-management already available$(NC)"; \
+		echo "$(RED)❌ MCP management tool not found in tools/ directory$(NC)"; \
+		echo "$(YELLOW)💡 The tool should be included in the repository$(NC)"; \
+		exit 1; \
 	fi
+	@echo "$(WHITE)📁 MCP tool location: $(YELLOW)tools/claude-code-mcp-management$(NC)"
+	@cd tools/claude-code-mcp-management && make check || { \
+		echo "$(YELLOW)⚠️  Some dependencies may be missing$(NC)"; \
+		echo "$(YELLOW)💡 Install dependencies as needed$(NC)"; \
+	}
+	@echo ""
+	@echo "$(GREEN)✅ MCP management tool is ready!$(NC)"
+	@echo "$(CYAN)🎯 Usage:$(NC)"
+	@echo "  $(CYAN)cd tools/claude-code-mcp-management$(NC)"
+	@echo "  $(CYAN)make help                    # Show available commands$(NC)"
+	@echo "  $(CYAN)make sync                    # Sync MCP servers$(NC)"
+	@echo "  $(CYAN)make list                    # List current servers$(NC)"
 
-generate-mcp-config: setup-mcp-tool ## Generate MCP configuration locally
-	@echo "$(WHITE)🔧 Generating MCP configuration locally...$(NC)"
+generate-mcp-config: ## Generate MCP configuration locally
+	@echo "$(CYAN)⚙️  Generating MCP configuration...$(NC)"
+	@if [ ! -d "tools/claude-code-mcp-management" ]; then \
+		echo "$(RED)❌ MCP management tool not found$(NC)"; \
+		echo "$(YELLOW)💡 Run 'make setup-mcp-tool' first$(NC)"; \
+		exit 1; \
+	fi
+	@if [ ! -f "$(ENV_FILE)" ]; then \
+		echo "$(RED)❌ Environment file not found: $(ENV_FILE)$(NC)"; \
+		echo "$(YELLOW)💡 Run 'make setup' to create it$(NC)"; \
+		exit 1; \
+	fi
+	@echo "$(WHITE)📝 Using environment file: $(YELLOW)$(ENV_FILE)$(NC)"
+	@echo "$(WHITE)📄 Generating configuration: $(YELLOW)$(MCP_FILE)$(NC)"
 	@cd tools/claude-code-mcp-management && \
-		make sync CONFIG_FILE=../../$(MCP_FILE) ENV_FILE=../../$(ENV_FILE) SCOPE=user --dry-run
-	@echo "$(GREEN)✅ MCP configuration generated$(NC)"
+		cp ../../$(ENV_FILE) .env 2>/dev/null || true && \
+		make show-config CONFIG_FILE=../../$(MCP_FILE) ENV_FILE=.env || { \
+		echo "$(YELLOW)⚠️  Configuration generation completed with warnings$(NC)"; \
+	}
+	@echo ""
+	@echo "$(GREEN)✅ MCP configuration ready!$(NC)"
+	@echo "$(CYAN)🎯 Next steps:$(NC)"
+	@echo "  $(CYAN)1. Review $(MCP_FILE) file$(NC)"
+	@echo "  $(CYAN)2. Update API keys in $(ENV_FILE)$(NC)"
+	@echo "  $(CYAN)3. Run 'make deploy-mcp VM_HOST=... TARGET_USER=...' to deploy$(NC)"
+
 
 # =============================================================================
 # Dynamic Inventory Generation
@@ -490,19 +447,3 @@ clean: ## Clean up temporary files
 	fi
 	@echo "$(GREEN)✅ Cleanup complete!$(NC)"
 
-info: ## Show current configuration
-	@echo "$(CYAN)╔════════════════════════════════════════════════════════════════════════════╗$(NC)"
-	@echo "$(CYAN)║                        Current Configuration                              ║$(NC)"
-	@echo "$(CYAN)╚════════════════════════════════════════════════════════════════════════════╝$(NC)"
-	@echo ""
-	@echo "$(WHITE)🎯 Target Configuration:$(NC)"
-	@echo "  Deploy Target: $(YELLOW)$(DEPLOY_TARGET)$(NC)"
-	@echo "  VM Host: $(if $(VM_HOST),$(YELLOW)$(VM_HOST)$(NC),$(RED)NOT SET (required)$(NC))"
-	@echo "  VM User: $(YELLOW)$(VM_USER)$(NC)"
-	@echo "  Target User: $(if $(TARGET_USER),$(YELLOW)$(TARGET_USER)$(NC),$(RED)NOT SET (required)$(NC))"
-	@echo "  Deployment Dir: $(YELLOW)$(DEPLOYMENT_DIR)$(NC)"
-	@echo ""
-	@echo "$(WHITE)📁 File Configuration:$(NC)"
-	@echo "  Environment File: $(if $(shell test -f $(ENV_FILE) && echo "exists"),$(GREEN)✅ $(ENV_FILE)$(NC),$(RED)❌ $(ENV_FILE) (missing)$(NC))"
-	@echo "  MCP Config File: $(if $(shell test -f $(MCP_FILE) && echo "exists"),$(GREEN)✅ $(MCP_FILE)$(NC),$(YELLOW)⚠️ $(MCP_FILE) (will use template)$(NC))"
-	@echo "  Screen Session: $(YELLOW)$(SESSION_NAME)$(NC)"

@@ -11,11 +11,35 @@ kubernetes_gpg_key_path: "/etc/apt/keyrings/kubernetes-apt-keyring.gpg"
 install_kubectl: true
 kubectl_hold_package: true  # Prevent automatic updates
 
-# kind configuration
-install_kind: true
+# kind configuration (optional)
+install_kind: false  # Made optional, k3s is preferred
 kind_version: "v0.29.0"
 kind_binary_url: "https://kind.sigs.k8s.io/dl/{{ kind_version }}/kind-linux-amd64"
 kind_install_path: "/usr/local/bin/kind"
+
+# k3s configuration (preselected)
+install_k3s: true
+install_docker_with_k3s: true  # Docker still useful for development, Docker Compose, image building
+# Version control (choose one approach):
+k3s_version: ""                    # Specific version (e.g., "v1.31.3+k3s1") or empty for latest
+k3s_channel: ""                    # Channel-based install ("stable", "latest", "testing") or empty
+# Note: If both are empty, installs latest stable. If k3s_version is set, it takes priority over k3s_channel.
+k3s_install_script_url: "https://get.k3s.io"
+k3s_config_dir: "/etc/rancher/k3s"
+k3s_kubeconfig_path: "/etc/rancher/k3s/k3s.yaml"
+k3s_user_kubeconfig_path: "{{ target_user_home }}/.kube/config"  # Configurable user kubeconfig location
+k3s_data_dir: "/var/lib/rancher/k3s"
+k3s_service_name: "k3s"
+
+# Ingress controller configuration (optional but preselected)
+install_nginx_ingress: true       # Install NGINX Ingress Controller (preselected)
+k3s_ingress_controller: "nginx"   # Options: "nginx" (default), "traefik", "none"
+nginx_ingress_version: ""         # NGINX Ingress Controller version (empty for latest)
+nginx_ingress_manifest_url: "https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml"  # Latest when version is empty
+
+# User configuration (optional but preselected)
+create_user_claude_config: true   # Create CLAUDE.md configuration file for user (preselected)
+allow_command_execution: true     # Allow Claude Code to execute commands on this VM (preselected)
 
 # kompose configuration
 install_kompose: true

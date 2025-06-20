@@ -1,0 +1,536 @@
+# CLAUDE.md - Development Environment Configuration
+
+This file provides guidance for Claude Code when working in this development environment.
+
+## Environment Overview
+
+### Development Stack
+- **Host OS**: {{ ansible_distribution }} {{ ansible_distribution_version }}
+- **Target User**: {{ target_user }}
+- **Deployment Directory**: {{ deployment_base_dir }}
+
+### Container & Orchestration
+- **Docker**: {{ 'Installed' if install_docker_with_k3s or not install_k3s else 'Not installed' }}
+- **Kubernetes Runtime**: {{ 'k3s' if install_k3s else 'KIND' if install_kind else 'None' }}
+{% if install_k3s %}
+- **k3s Version**: Latest stable
+- **Ingress Controller**: {{ 'NGINX Ingress Controller' if install_nginx_ingress else 'Traefik' if k3s_ingress_controller == 'traefik' else 'None' }}
+- **Kubeconfig**: `{{ k3s_user_kubeconfig_path }}`
+{% elif install_kind %}
+- **KIND**: Available for local Kubernetes development
+- **Kubeconfig**: `~/.kube/config`
+{% endif %}
+
+### Development Tools
+- **Node.js**: Latest LTS with npm global packages
+- **Claude Code CLI**: Installed with MCP server integration
+- **Git**: Multi-provider credential management
+- **Screen**: Persistent terminal sessions
+
+## Command Execution Policy
+
+{% if allow_command_execution | default(true) | bool %}
+### Remote Command Execution Enabled
+
+This development environment **allows Claude Code to execute commands remotely**. The following commands can be run automatically when requested:
+
+**Kubernetes Commands:**
+{% if install_k3s %}
+- `k3s kubectl get nodes`, `k3s kubectl get pods -A`
+- `k3s kubectl logs`, `k3s kubectl describe`, `k3s kubectl port-forward`
+- `k3s kubectl apply`, `k3s kubectl delete` (for development resources)
+{% elif install_kind %}
+- `kubectl get nodes`, `kubectl get pods -A`
+- `kubectl logs`, `kubectl describe`, `kubectl port-forward`
+- `kind get clusters`, `kind load docker-image`
+{% endif %}
+
+**Docker Commands:**
+{% if install_docker_with_k3s or not install_k3s %}
+- `docker ps`, `docker images`, `docker logs`
+- `docker build`, `docker run`, `docker exec`
+- `docker compose up`, `docker compose down`, `docker compose logs`
+{% endif %}
+
+**System Commands:**
+- `ls`, `cat`, `grep`, `find`, `tail`, `head`
+- `ps`, `top`, `df`, `free`, `systemctl status`
+- `git status`, `git log`, `git branch`, `git diff`
+- `npm list`, `node --version`, `claude --version`
+
+**Available Aliases:**
+{% if install_k3s %}
+- `k`, `kubectl`, `kgp`, `kgs`, `kgd` (Kubernetes)
+{% elif install_kind %}
+- `k`, `kgp`, `kgs`, `kgd` (Kubernetes)
+{% endif %}
+{% if install_docker_with_k3s or not install_k3s %}
+- `d`, `dc`, `dps`, `di` (Docker)
+{% endif %}
+
+{% else %}
+### Remote Command Execution Disabled
+
+This development environment **does not allow Claude Code to execute commands remotely**. You will need to run commands manually and share outputs as needed.
+
+{% endif %}
+
+## Subagent Usage and Parallelization
+
+### Subagent Support Configuration
+
+This development environment **enables subagent usage by default** for enhanced productivity and parallel task execution. Subagents allow Claude Code to work on multiple tasks simultaneously, significantly improving efficiency for complex operations.
+
+**Default Behavior:**
+- Subagents are **enabled by default** for optimal performance
+- Automatically utilized for complex multi-step operations
+- Configured to work seamlessly with this development stack
+- Can be disabled if needed for specific workflows
+
+### When Subagents Are Most Beneficial
+
+**Complex Deployments:**
+{% if install_k3s %}
+- Parallel k3s cluster validation and service health checks
+- Simultaneous container builds and Kubernetes manifest preparation
+- Concurrent ingress configuration and certificate management
+{% elif install_kind %}
+- Parallel KIND cluster setup and Docker image loading
+- Simultaneous container builds and Kubernetes manifest validation
+- Concurrent service deployment and connectivity testing
+{% else %}
+- Parallel Docker Compose service management
+- Simultaneous container builds and network configuration
+- Concurrent service health checks and log analysis
+{% endif %}
+
+**Development Workflow Tasks:**
+- Code analysis while preparing deployment manifests
+- Documentation generation during build processes
+- Test execution while performing system validation
+- Git operations while updating configuration files
+- Environment cleanup while preparing new deployments
+
+**System Operations:**
+- Log analysis across multiple services simultaneously
+- Parallel health checks for different system components
+- Concurrent file operations and system diagnostics
+- Multi-service debugging and troubleshooting
+- Parallel backup and restoration operations
+
+### Best Practices for Subagent Usage
+
+**Task Organization:**
+- Break complex operations into independent, parallelizable tasks
+- Use subagents for operations that don't depend on each other
+- Coordinate results from multiple subagents for comprehensive analysis
+- Leverage parallel execution for time-consuming operations
+
+**Development Environment Integration:**
+```bash
+# Example: Parallel system validation
+# Subagent 1: Kubernetes cluster health
+kubectl get nodes && kubectl get all -A
+
+# Subagent 2: Docker system status  
+docker system df && docker ps --format "table {{.Names}}\t{{.Status}}"
+
+# Subagent 3: Development tools verification
+node --version && npm list -g --depth=0 && claude --version
+```
+
+**Effective Parallelization Patterns:**
+- **Independent Validation**: Multiple system components checked simultaneously
+- **Parallel Builds**: Container images and documentation built concurrently
+- **Multi-Service Deployment**: Deploy different services to different namespaces
+- **Concurrent Testing**: Run different test suites simultaneously
+- **Parallel Cleanup**: Clean multiple directories/resources at once
+
+### Configuration Options
+
+**Enabling Subagents (Default):**
+```yaml
+# In project configuration
+subagent_usage: enabled
+max_parallel_tasks: 4
+task_coordination: automatic
+```
+
+**Disabling Subagents (If Needed):**
+```yaml
+# For sequential-only workflows
+subagent_usage: disabled
+execution_mode: sequential
+```
+
+**Custom Configuration:**
+```yaml
+# Fine-tuned settings
+subagent_usage: enabled
+max_parallel_tasks: 2
+task_types:
+  - validation
+  - deployment
+  - documentation
+coordination_timeout: 300
+```
+
+### Practical Examples in This Environment
+
+**Kubernetes Deployment with Subagents:**
+```bash
+# Subagent 1: Prepare cluster
+kubectl create namespace myapp
+kubectl apply -f rbac.yaml
+
+# Subagent 2: Build and load images
+docker build -t myapp:latest .
+{% if install_k3s %}
+k3s ctr images import myapp-latest.tar
+{% elif install_kind %}
+kind load docker-image myapp:latest
+{% endif %}
+
+# Subagent 3: Validate configuration
+kubectl --dry-run=client apply -f deployment.yaml
+kubectl --dry-run=client apply -f service.yaml
+
+# Coordination: Deploy everything
+kubectl apply -f deployment.yaml -f service.yaml
+```
+
+**Development Environment Setup:**
+```bash
+# Subagent 1: System preparation
+sudo apt update && sudo apt upgrade -y
+sudo systemctl status docker
+
+# Subagent 2: Development tools
+npm install -g typescript @types/node
+claude mcp install
+
+# Subagent 3: Project initialization
+git init && git remote add origin <repo-url>
+echo "node_modules/" > .gitignore
+
+# Coordination: Final validation
+docker --version && kubectl version --client && node --version
+```
+
+### Monitoring Subagent Operations
+
+**Progress Tracking:**
+- Each subagent reports progress independently
+- Consolidated status updates for complex operations
+- Error isolation prevents one failure from stopping others
+- Parallel execution time tracking and optimization
+
+**Debugging Parallel Operations:**
+```bash
+# Check multiple services simultaneously
+kubectl logs -f deployment/app1 &
+kubectl logs -f deployment/app2 &
+kubectl logs -f deployment/app3 &
+wait  # Wait for all background jobs
+
+# Parallel health checks
+kubectl get pods -l app=frontend --no-headers | wc -l &
+kubectl get pods -l app=backend --no-headers | wc -l &
+kubectl get pods -l app=database --no-headers | wc -l &
+```
+
+### Integration with Existing Tools
+
+**With Docker Commands:**
+- Parallel container builds for different services
+- Concurrent health checks across multiple containers
+- Simultaneous log collection from multiple services
+
+**With Kubernetes Operations:**
+- Parallel deployment to different namespaces
+- Concurrent validation of multiple manifests
+- Simultaneous monitoring of different cluster components
+
+**With Development Workflow:**
+- Code analysis while preparing deployment
+- Documentation generation during build processes
+- Test execution while performing system validation
+
+### Performance Benefits
+
+**Time Savings:**
+- Complex deployments complete 2-3x faster
+- Parallel validation reduces waiting time
+- Concurrent operations maximize resource utilization
+- Reduced overall development cycle time
+
+**Resource Efficiency:**
+- Better utilization of multi-core systems
+- Parallel I/O operations reduce bottlenecks
+- Concurrent network operations improve throughput
+- Optimized use of development environment resources
+
+**Note:** Subagent usage is automatically optimized for this development environment's configuration and available resources. The system intelligently balances parallel execution with resource constraints to ensure optimal performance.
+
+## Git Branch and Push Policy
+
+### Development Workflow
+- **Always create dedicated branches** for improvements and fixes
+- **Never commit directly to main/master** without explicit authorization
+- **Test thoroughly** before committing
+- **Verify changes work** with end-to-end testing
+- **Create proper commit messages** describing the change
+- **Always generate proper .gitignore files** before first commit
+
+### Required .gitignore Patterns
+```gitignore
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn-integrity
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Kubernetes
+*.kubeconfig
+kubeconfig*
+
+# Claude Code files (IMPORTANT)
+CLAUDE.md
+.claude/
+.claude-directories
+
+# Logs
+logs
+*.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# OS files
+.DS_Store
+Thumbs.db
+```
+
+### Branch Naming
+- `feature/description` - for new features
+- `fix/description` - for bug fixes
+- `update/description` - for updates and improvements
+
+### Commit Guidelines
+- **Never mention Claude** in commit messages or as contributor
+- **Ensure no sensitive information** is exposed in commits
+- **Always include proper .gitignore** before first commit
+- **Exclude Claude-related files** (CLAUDE.md, .claude directories) from commits
+- **Use clear, descriptive commit messages** focusing on the "why"
+
+### Push Policy
+1. Create branch: `git checkout -b feature/my-feature`
+2. Generate/update .gitignore file
+3. Make changes and test thoroughly
+4. Commit with clear message
+5. Push branch: `git push -u origin feature/my-feature`
+6. Create pull request for review
+7. **Only merge to main after explicit authorization**
+
+## Development Environment
+
+### Container Runtimes
+- **Docker**: {{ 'Available' if install_docker_with_k3s or not install_k3s else 'Not installed' }} for development, Docker Compose, image building
+{% if install_k3s %}
+- **k3s/containerd**: Used by Kubernetes for container orchestration  
+- **Coexistence**: Docker for dev workflows, k3s for Kubernetes workloads
+{% elif install_kind %}
+- **KIND/Docker**: Uses Docker for Kubernetes containers
+{% endif %}
+
+### Useful Docker Aliases
+```bash
+{% if install_docker_with_k3s or not install_k3s %}
+alias d=docker                 # Short docker command
+alias dc='docker compose'      # Docker Compose
+alias dps='docker ps'          # List running containers
+alias di='docker images'       # List images
+{% else %}
+# Docker not installed in this configuration
+{% endif %}
+```
+
+## Command Execution Environment
+
+### Remote Command Execution
+This development environment supports automatic execution of common commands:
+
+**Kubernetes Commands:**
+- All `kubectl` and `k` commands are automatically available
+- Direct k3s access via `k3s kubectl` commands
+- Cluster inspection: `kubectl get nodes`, `kubectl get all -A`
+
+**Docker Commands:**
+- Standard Docker commands: `docker ps`, `docker images`, `docker logs`
+- Docker Compose operations: `docker compose up`, `docker compose down`
+- Container management: `docker exec`, `docker logs`
+
+**Shell Commands:**
+- File operations: `ls`, `find`, `grep`, `cat`, `tail`, `head`
+- System information: `ps`, `top`, `df`, `free`, `uname`
+- Network utilities: `curl`, `wget`, `netstat`, `ss`
+- Git operations: `git status`, `git log`, `git branch`
+- Process management: `systemctl status`, `journalctl`
+
+**Development Tools:**
+- Node.js: `node --version`, `npm list`, `npm install`
+- Claude Code: `claude --version`, `claude mcp list`
+- Screen sessions: `screen -list`, `screen -r`
+
+### Command Aliases Available
+```bash
+# Kubernetes shortcuts
+k, kubectl, kgp, kgs, kgd
+
+# Docker shortcuts  
+d, dc, dps, di
+
+# All standard bash aliases and functions
+```
+
+## Important Notes
+
+- **Docker group membership**: Requires logout/login after installation
+- **Screen sessions**: Automatic screen attachment configured for persistent sessions
+- **Global npm packages**: Installed to user directory, PATH configured
+- **Claude Code CLI**: Available globally after installation
+- **MCP Servers**: Configured and available for Claude Code extensions
+- **Command execution**: All commands run in the context of this development VM
+
+## Quick Start Commands
+
+```bash
+# Check Kubernetes cluster
+kubectl get nodes
+kubectl get all -A
+
+# Check Docker
+docker --version
+docker ps
+
+# Check Claude Code
+claude --version
+
+# Access development tools
+screen -list              # List screen sessions
+npm list -g              # Global npm packages
+```
+
+## Build and Deployment Processes
+
+### From VM to Local Development Environment
+
+**Container Image Builds:**
+{% if install_k3s %}
+```bash
+# Build and deploy to k3s cluster
+docker build -t myapp:latest .
+k3s ctr images import myapp-latest.tar    # Import to k3s
+kubectl apply -f k8s-manifests/           # Deploy to cluster
+```
+{% elif install_kind %}
+```bash
+# Build and load into KIND cluster
+docker build -t myapp:latest .
+kind load docker-image myapp:latest       # Load into KIND
+kubectl apply -f k8s-manifests/           # Deploy to cluster
+```
+{% else %}
+```bash
+# Build for Docker Compose deployment
+docker build -t myapp:latest .
+docker compose up -d                      # Deploy with Compose
+```
+{% endif %}
+
+**Development Workflow:**
+1. **Code Development**: Edit code in the VM environment
+2. **Local Testing**: 
+{% if install_k3s or install_kind %}
+   - Test with `kubectl port-forward` for service access
+   - Use `kubectl logs` for debugging
+   - Access via NGINX Ingress (if configured) or NodePort services
+{% else %}
+   - Test with `docker compose up` 
+   - Access services via exposed ports
+   - Use `docker compose logs` for debugging
+{% endif %}
+3. **Build Pipeline**: 
+   - Build images locally: `docker build`
+{% if install_k3s %}
+   - Import to k3s: `k3s ctr images import`
+{% elif install_kind %}
+   - Load to KIND: `kind load docker-image`
+{% endif %}
+   - Deploy: `kubectl apply` or `docker compose up`
+
+**Port Forwarding for Development:**
+{% if install_k3s or install_kind %}
+```bash
+# Forward service ports for local access
+kubectl port-forward service/myapp 8080:80
+kubectl port-forward pod/myapp-pod 8080:8080
+
+# Access services via Ingress (if configured)
+curl http://localhost/myapp
+```
+{% else %}
+```bash
+# Access Docker Compose services
+docker compose port web 80        # Check exposed ports
+curl http://localhost:8080/myapp   # Access via mapped ports
+```
+{% endif %}
+
+**Image Registry Workflow:**
+```bash
+# Tag for registry
+docker tag myapp:latest registry.company.com/myapp:latest
+
+# Push to registry
+docker push registry.company.com/myapp:latest
+
+# Deploy from registry
+{% if install_k3s or install_kind %}
+kubectl set image deployment/myapp myapp=registry.company.com/myapp:latest
+{% else %}
+# Update docker-compose.yml with new image
+docker compose pull && docker compose up -d
+{% endif %}
+```
+
+**Local Development Tips:**
+- Use `screen` sessions for persistent development sessions
+- Leverage `kubectl logs -f` or `docker compose logs -f` for real-time debugging
+- Use port-forwarding to access services from your local machine
+- Build and test locally before pushing to remote registries
+
+This environment is optimized for modern development with Kubernetes, Docker, and AI-assisted coding workflows. Commands can be executed automatically when requested.

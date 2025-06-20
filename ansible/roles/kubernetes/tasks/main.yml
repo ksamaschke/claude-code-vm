@@ -114,6 +114,212 @@
 
   when: install_kompose
 
+# k3s installation
+- name: Install k3s (Lightweight Kubernetes)
+  block:
+    - name: Check if k3s is already installed
+      command: k3s --version
+      register: k3s_check
+      failed_when: false
+      changed_when: false
+      tags:
+        - kubernetes
+        - k3s
+
+    - name: Build k3s installation command
+      set_fact:
+        k3s_install_env: |
+          {% if k3s_version %}
+          INSTALL_K3S_VERSION={{ k3s_version }}
+          {% elif k3s_channel %}
+          INSTALL_K3S_CHANNEL={{ k3s_channel }}
+          {% endif %}
+        k3s_install_args: |
+          {% if install_nginx_ingress or k3s_ingress_controller == "nginx" %}
+          --disable=traefik
+          {% elif k3s_ingress_controller == "none" %}
+          --disable=traefik
+          {% endif %}
+      when: k3s_check.rc != 0
+      tags:
+        - kubernetes
+        - k3s
+
+    - name: Download and install k3s
+      shell: |
+        curl -sfL {{ k3s_install_script_url }} | {{ k3s_install_env | trim }} sh -s - {{ k3s_install_args | trim }}
+      when: k3s_check.rc != 0
+      tags:
+        - kubernetes
+        - k3s
+
+    - name: Ensure k3s service is started and enabled
+      systemd:
+        name: "{{ k3s_service_name }}"
+        state: started
+        enabled: true
+        daemon_reload: true
+      tags:
+        - kubernetes
+        - k3s
+
+    - name: Create k3s config directory for target user
+      file:
+        path: "{{ target_user_home }}/.kube"
+        state: directory
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: '0755'
+      tags:
+        - kubernetes
+        - k3s
+
+    - name: Copy k3s kubeconfig for target user
+      copy:
+        src: "{{ k3s_kubeconfig_path }}"
+        dest: "{{ k3s_user_kubeconfig_path }}"
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: '0600'
+        remote_src: true
+      tags:
+        - kubernetes
+        - k3s
+
+    - name: Add target user to k3s group (if exists)
+      user:
+        name: "{{ target_user }}"
+        groups: k3s
+        append: true
+      failed_when: false  # Group might not exist
+      tags:
+        - kubernetes
+        - k3s
+
+    - name: Verify k3s installation
+      command: k3s kubectl version --client
+      register: k3s_version_check
+      changed_when: false
+      tags:
+        - kubernetes
+        - k3s
+
+  when: install_k3s
+
+# NGINX Ingress Controller installation
+- name: Install NGINX Ingress Controller
+  block:
+    - name: Wait for k3s to be ready
+      wait_for:
+        port: 6443
+        host: "127.0.0.1"
+        delay: 10
+        timeout: 120
+      tags:
+        - kubernetes
+        - nginx-ingress
+
+    - name: Build NGINX Ingress manifest URL
+      set_fact:
+        nginx_manifest_url: |
+          {% if nginx_ingress_version %}
+          https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-{{ nginx_ingress_version }}/deploy/static/provider/cloud/deploy.yaml
+          {% else %}
+          https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml
+          {% endif %}
+      tags:
+        - kubernetes
+        - nginx-ingress
+
+    - name: Apply NGINX Ingress Controller manifest
+      shell: |
+        k3s kubectl apply -f {{ nginx_manifest_url | trim }}
+      register: nginx_ingress_result
+      tags:
+        - kubernetes
+        - nginx-ingress
+
+    - name: Wait for NGINX Ingress Controller to be ready
+      shell: |
+        k3s kubectl wait --namespace ingress-nginx \
+          --for=condition=ready pod \
+          --selector=app.kubernetes.io/component=controller \
+          --timeout=300s
+      register: nginx_wait_result
+      tags:
+        - kubernetes
+        - nginx-ingress
+
+    - name: Verify NGINX Ingress Controller installation
+      shell: |
+        k3s kubectl get pods -n ingress-nginx
+      register: nginx_pods_check
+      tags:
+        - kubernetes
+        - nginx-ingress
+
+    - name: Display NGINX Ingress status
+      debug:
+        msg:
+          - "=== NGINX Ingress Controller Status ==="
+          - "{{ nginx_pods_check.stdout_lines }}"
+      tags:
+        - kubernetes
+        - nginx-ingress
+
+  when: install_k3s and install_nginx_ingress
+
+# User CLAUDE.md configuration
+- name: Create user CLAUDE.md configuration
+  block:
+    - name: Check if user already has CLAUDE.md
+      stat:
+        path: "{{ target_user_home }}/.claude/CLAUDE.md"
+      register: user_claude_config
+      tags:
+        - kubernetes
+        - user-config
+
+    - name: Create .claude directory for user
+      file:
+        path: "{{ target_user_home }}/.claude"
+        state: directory
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: '0755'
+      when: not user_claude_config.stat.exists
+      tags:
+        - kubernetes
+        - user-config
+
+    - name: Generate CLAUDE.md from template for user
+      template:
+        src: "../../config/CLAUDE.md.default"
+        dest: "{{ target_user_home }}/.claude/CLAUDE.md"
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: '0644'
+      when: not user_claude_config.stat.exists
+      tags:
+        - kubernetes
+        - user-config
+
+    - name: Display CLAUDE.md configuration notice
+      debug:
+        msg:
+          - "=== User CLAUDE.md Configuration ==="
+          - "{% if user_claude_config.stat.exists %}User already has ~/.claude/CLAUDE.md - skipped creation{% else %}Created ~/.claude/CLAUDE.md with development environment guidance{% endif %}"
+          - "This file provides Claude Code with context about:"
+          - "- Kubernetes runtime (k3s with NGINX Ingress)"
+          - "- Kubeconfig location (~/.kube/config)"
+          - "- Git branch and push policy"
+          - "- Development environment setup"
+      tags:
+        - kubernetes
+        - user-config
+
+  when: install_k3s and create_user_claude_config
+
 # Bash completions setup
 - name: Configure bash completions for Kubernetes tools
   block:
@@ -169,24 +375,57 @@
         - bash-completion
         - kind
 
-    - name: Add Kubernetes aliases to user .bashrc
-      blockinfile:
+    - name: Add k3s kubectl completion to user .bashrc
+      lineinfile:
         path: "{{ user_info.results[index].ansible_facts.getent_passwd[item][4] }}/.bashrc"
-        marker: "# {mark} ANSIBLE MANAGED BLOCK - Kubernetes aliases"
-        block: |
-          # Kubernetes aliases
-          alias k=kubectl
-          alias kgp='kubectl get pods'
-          alias kgs='kubectl get services'
-          alias kgd='kubectl get deployments'
-          complete -o default -F __start_kubectl k
+        line: "source <(k3s kubectl completion bash)"
         create: true
         owner: "{{ item }}"
         group: "{{ item }}"
       loop: "{{ configure_completions_for_users }}"
       loop_control:
         index_var: index
-      when: install_kubectl and install_bash_completion
+      when: install_k3s and install_bash_completion
+      tags:
+        - kubernetes
+        - bash-completion
+        - k3s
+
+    - name: Add Kubernetes and Docker aliases to user .bashrc
+      blockinfile:
+        path: "{{ user_info.results[index].ansible_facts.getent_passwd[item][4] }}/.bashrc"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - Kubernetes and Docker aliases"
+        block: |
+          # Kubernetes aliases (kubectl or k3s kubectl)
+          {% if install_k3s %}
+          alias k='k3s kubectl'
+          alias kubectl='k3s kubectl'
+          alias kgp='k3s kubectl get pods'
+          alias kgs='k3s kubectl get services'
+          alias kgd='k3s kubectl get deployments'
+          # Set up completion for k3s kubectl and k alias
+          complete -o default -F __start_kubectl k
+          {% else %}
+          alias k=kubectl
+          alias kgp='kubectl get pods'
+          alias kgs='kubectl get services'
+          alias kgd='kubectl get deployments'
+          complete -o default -F __start_kubectl k
+          {% endif %}
+          {% if install_docker_with_k3s or not install_k3s %}
+          # Docker aliases
+          alias d=docker
+          alias dc='docker compose'
+          alias dps='docker ps'
+          alias di='docker images'
+          {% endif %}
+        create: true
+        owner: "{{ item }}"
+        group: "{{ item }}"
+      loop: "{{ configure_completions_for_users }}"
+      loop_control:
+        index_var: index
+      when: (install_kubectl or install_k3s) and install_bash_completion
       tags:
         - kubernetes
         - bash-completion
@@ -215,12 +454,19 @@
       changed_when: false
       when: install_kompose
 
+    - name: Check k3s version
+      command: k3s --version
+      register: k3s_version_output
+      changed_when: false
+      when: install_k3s
+
     - name: Display Kubernetes tools versions
       debug:
         msg:
           - "=== Kubernetes Tools Installed ==="
           - "kubectl: {{ kubectl_version_output.stdout if install_kubectl else 'Not installed' }}"
           - "kind: {{ kind_version_output.stdout if install_kind else 'Not installed' }}"
+          - "k3s: {{ k3s_version_output.stdout if install_k3s else 'Not installed' }}"
           - "kompose: {{ kompose_version_output.stdout if install_kompose else 'Not installed' }}"
 
     - name: Verify bash completion is available

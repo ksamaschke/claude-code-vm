@@ -73,13 +73,75 @@
     - system
     - packages
 
+- name: Check for active package manager processes
+  shell: |
+    if pgrep -f "apt|dpkg|unattended-upgrade" > /dev/null; then
+      echo "active"
+    else
+      echo "clear"
+    fi
+  register: package_manager_check
+  changed_when: false
+  tags:
+    - system
+    - packages
+
+- name: Wait for automatic package manager to finish
+  wait_for:
+    path: /var/lib/dpkg/lock-frontend
+    state: absent
+    timeout: 300
+  when: package_manager_check.stdout == "active"
+  ignore_errors: true
+  tags:
+    - system
+    - packages
+
+- name: Display package manager wait notice
+  debug:
+    msg:
+      - "⚠️ Package manager is active (apt/dpkg/unattended-upgrade)"
+      - "Waiting up to 5 minutes for automatic updates to complete..."
+      - "This is normal on fresh VMs with automatic updates enabled"
+  when: package_manager_check.stdout == "active"
+  tags:
+    - system
+    - packages
+
 - name: Upgrade existing packages
   apt:
     upgrade: "{{ upgrade_packages }}"
     update_cache: false
   when: upgrade_packages is defined and upgrade_packages != false
-  retries: 2
-  delay: 10
+  retries: 3
+  delay: 30
+  register: upgrade_result
+  failed_when: false
+  tags:
+    - system
+    - packages
+    - upgrade
+
+- name: Handle package upgrade failure
+  fail:
+    msg:
+      - "❌ Package upgrade failed after 3 attempts"
+      - "Common causes:"
+      - "- Another package manager process is running (apt/dpkg/unattended-upgrade)"
+      - "- Package repository issues"
+      - "- Insufficient disk space"
+      - ""
+      - "💡 Troubleshooting steps:"
+      - "1. Check active processes: sudo pgrep -f 'apt|dpkg|unattended-upgrade'"
+      - "2. Wait for processes to finish or kill them: sudo pkill unattended-upgrade"
+      - "3. Check disk space: df -h"
+      - "4. Try manual update: sudo apt update && sudo apt upgrade"
+      - ""
+      - "🔧 To skip package upgrades, set: upgrade_packages=false"
+  when: 
+    - upgrade_packages is defined and upgrade_packages != false
+    - upgrade_result is defined
+    - upgrade_result.failed | default(false)
   tags:
     - system
     - packages

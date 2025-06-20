@@ -10,5 +10,5 @@
 
 - name: notify user of group change
   debug:
-    msg: "User {{ item }} added to docker group. Please log out and back in for changes to take effect."
+    msg: "Users added to docker group. Please log out and back in for changes to take effect."
   listen: "notify user of group change"

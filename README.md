@@ -25,7 +25,7 @@ make deploy VM_HOST=192.168.1.100 TARGET_USER=developer
 - **Docker & Docker Compose** - Container development environment
 - **Node.js 22 LTS** - Latest LTS with global package support
 - **Git with Multi-Provider Support** - GitHub, GitLab, Azure DevOps, Bitbucket, custom servers
-- **Kubernetes Tools** - kubectl, kind, kompose with bash completions
+- **Kubernetes Tools** - kubectl, k3s (lightweight), kompose with bash completions
 - **MCP Servers** - Search, memory, document processing, browser automation
 - **Persistent Sessions** - Screen-based terminal sessions that survive disconnects
 
@@ -135,32 +135,239 @@ claude-code-vm/
 └── README.md        # This file
 ```
 
-## 🛠️ Available Commands
+## 🛠️ Make Targets Reference
 
+### Essential Commands
+
+**First-time setup and deployment:**
 ```bash
-make help              # Show all commands
-make setup             # First-time setup
-make deploy            # Full deployment
-make deploy-mcp        # MCP servers only
-make validate          # Verify deployment
-make check             # Test connectivity
+make help              # Show comprehensive help and usage examples
+make setup             # Initialize environment files (.env, mcp-servers.json)
+make deploy            # Deploy complete development stack
+make validate          # Verify all deployed components are working
 ```
 
-## 🔍 Troubleshooting
-
-**Connection Issues**:
+**Connectivity and configuration:**
 ```bash
-make check VM_HOST=your.ip TARGET_USER=user
+make check-config      # Validate configuration files and requirements
+make test-connection   # Test network connectivity and SSH authentication
+make clean             # Clean up temporary files and generated inventories
 ```
 
-**SSH Problems**:
+### MCP (Model Context Protocol) Management
+
+**MCP server deployment and configuration:**
 ```bash
-ssh -v user@your.ip  # Test manually
+make deploy-mcp        # Deploy MCP servers only (requires Claude Code)
+make setup-mcp-tool    # Setup local MCP management tool
+make generate-mcp-config # Generate MCP configuration from environment
 ```
 
-**More Help**:
+### Common Usage Patterns
+
+**Complete first-time deployment:**
+```bash
+# 1. Initialize project
+make setup
+
+# 2. Edit .env file with your Git credentials and MCP API keys
+nano .env
+
+# 3. Deploy complete stack
+make deploy VM_HOST=192.168.1.100 TARGET_USER=developer
+
+# 4. Validate deployment
+make validate VM_HOST=192.168.1.100 TARGET_USER=developer
+```
+
+**MCP-only deployment (after initial setup):**
+```bash
+# Update MCP configuration and deploy
+make generate-mcp-config
+make deploy-mcp VM_HOST=192.168.1.100 TARGET_USER=developer
+```
+
+**Troubleshooting connectivity:**
+```bash
+# Test all connection aspects
+make test-connection VM_HOST=192.168.1.100 TARGET_USER=developer
+
+# Check configuration
+make check-config
+```
+
+### Required Variables
+
+**All deployment commands require these variables:**
+- `VM_HOST` - Target VM IP address (REQUIRED)
+- `TARGET_USER` - Target user on VM (REQUIRED)
+
+**Example:**
+```bash
+make deploy VM_HOST=192.168.1.100 TARGET_USER=developer
+```
+
+### Optional Variables
+
+**Authentication options:**
+```bash
+# Use specific SSH key
+make deploy VM_HOST=192.168.1.100 TARGET_USER=dev TARGET_SSH_KEY=~/.ssh/custom_key
+
+# Use password authentication
+make deploy VM_HOST=192.168.1.100 TARGET_USER=dev USE_SSH_PASSWORD=true SSH_PASSWORD=mypass
+
+# Specify sudo password
+make deploy VM_HOST=192.168.1.100 TARGET_USER=dev USE_BECOME_PASSWORD=true BECOME_PASSWORD=sudopass
+```
+
+**Custom configuration files:**
+```bash
+# Use custom environment file
+make deploy VM_HOST=192.168.1.100 TARGET_USER=dev ENV_FILE=production.env
+
+# Use custom MCP configuration
+make deploy-mcp VM_HOST=192.168.1.100 TARGET_USER=dev MCP_FILE=custom-mcp.json
+```
+
+**Deployment customization:**
+```bash
+# Custom deployment directory
+make deploy VM_HOST=192.168.1.100 TARGET_USER=dev DEPLOYMENT_DIR=/opt/claude-code-vm
+
+# Custom session name
+make deploy VM_HOST=192.168.1.100 TARGET_USER=dev SESSION_NAME=PRODUCTION
+```
+
+### Component-Specific Deployments
+
+**For deploying individual components, use Ansible directly with tags:**
+```bash
+# Deploy only Git configuration
+ansible-playbook ansible/playbooks/site.yml --tags git
+
+# Deploy Docker and Node.js
+ansible-playbook ansible/playbooks/site.yml --tags docker,nodejs
+
+# Deploy Kubernetes tools and MCP servers
+ansible-playbook ansible/playbooks/site.yml --tags kubernetes,mcp
+
+# Available tags: common, git, docker, nodejs, claude-code, kubernetes, mcp
+```
+
+### Advanced Usage
+
+**Dry run and testing:**
+```bash
+# Check what would change without applying
+ansible-playbook ansible/playbooks/site.yml --check --diff
+
+# Syntax check
+ansible-playbook --syntax-check ansible/playbooks/site.yml
+```
+
+**Custom inventory:**
+```bash
+# Use custom inventory file
+ansible-playbook ansible/playbooks/site.yml -i custom-inventory.yml
+```
+
+### Troubleshooting Make Targets
+
+**Common issues and solutions:**
+
+1. **Connection failures:**
+   ```bash
+   # Test connectivity step by step
+   make test-connection VM_HOST=192.168.1.100 TARGET_USER=developer
+   ```
+
+2. **Configuration errors:**
+   ```bash
+   # Validate all configuration files
+   make check-config
+   ```
+
+3. **SSH authentication problems:**
+   ```bash
+   # Check SSH key permissions
+   chmod 600 ~/.ssh/id_rsa
+   
+   # Test manual SSH connection
+   ssh developer@192.168.1.100
+   ```
+
+4. **Deployment timeouts:**
+   - Default timeout is 30 minutes for full deployment
+   - Check VM resources (CPU, memory, disk space)
+   - Verify network stability
+
+5. **MCP deployment issues:**
+   ```bash
+   # Ensure full stack is deployed first
+   make deploy VM_HOST=192.168.1.100 TARGET_USER=developer
+   
+   # Then deploy MCP servers
+   make deploy-mcp VM_HOST=192.168.1.100 TARGET_USER=developer
+   ```
+
+**Environment file troubleshooting:**
+- `.env` file is optional but recommended for automation
+- If missing, Git credentials must be configured manually on target VM
+- MCP servers require API keys in `.env` file to function
+
+**Cleanup and reset:**
+```bash
+# Clean temporary files
+make clean
+
+# Reset environment (removes .env and mcp-servers.json)
+rm .env mcp-servers.json
+make setup
+```
+
+### Internal Targets
+
+**These targets are automatically called by main commands but can be used independently:**
+
+```bash
+make create-dynamic-inventory # Generate Ansible inventory for single machine
+```
+
+This target creates a temporary inventory file at `.tmp/claude-code-vm/{VM_HOST}/inventory.yml` with the appropriate connection settings for your deployment. It's automatically called by `deploy`, `validate`, and `deploy-mcp` targets.
+
+### Make vs Ansible Usage
+
+**When to use Make:**
+- Quick deployment and validation
+- Standardized workflows with error handling
+- Automatic inventory generation for single machines
+- Built-in connectivity testing and configuration validation
+
+**When to use Ansible directly:**
+- Component-specific deployments with tags
+- Custom inventory files for multiple machines
+- Advanced Ansible features (vault, callbacks, etc.)
+- Fine-grained control over deployment process
+
+**Examples:**
+```bash
+# Make: Full deployment with built-in checks
+make deploy VM_HOST=192.168.1.100 TARGET_USER=developer
+
+# Ansible: Component-specific deployment
+ansible-playbook ansible/playbooks/site.yml --tags git,docker
+
+# Ansible: Custom inventory
+ansible-playbook ansible/playbooks/site.yml -i production-inventory.yml
+```
+
+## 🔍 Additional Troubleshooting
+
+**For detailed troubleshooting beyond Make targets:**
 - **[MCP Configuration](docs/components-mcp.md)** - Set up AI extensions
 - **[Troubleshooting Guide](docs/troubleshooting.md)** - Common issues and solutions
+- **[Authentication Guide](docs/authentication.md)** - SSH keys, passwords, security
 
 ## 📄 License
 
