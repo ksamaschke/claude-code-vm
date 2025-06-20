@@ -90,27 +90,50 @@
 
     - name: Download claude-code-mcp-management repository (fallback)
       block:
+        - name: Ensure temp directory exists
+          file:
+            path: "{{ temp_dir }}"
+            state: directory
+            owner: "{{ target_user }}"
+            group: "{{ target_user }}"
+            mode: '0755'
+          become: true
+
         - name: Download repository archive
           get_url:
             url: "https://github.com/ksamaschke/claude-code-mcp-management/archive/refs/heads/main.zip"
-            dest: "{{ target_user_home }}/claude-code-mcp-management.zip"
+            dest: "{{ temp_dir }}/claude-code-mcp-management.zip"
             owner: "{{ target_user }}"
             group: "{{ target_user }}"
             mode: '0644'
 
+        - name: Ensure tools directory exists
+          file:
+            path: "{{ tools_dir }}"
+            state: directory
+            owner: "{{ target_user }}"
+            group: "{{ target_user }}"
+            mode: '0755'
+          become: true
+
         - name: Extract repository
           unarchive:
-            src: "{{ target_user_home }}/claude-code-mcp-management.zip"
-            dest: "{{ target_user_home }}/"
+            src: "{{ temp_dir }}/claude-code-mcp-management.zip"
+            dest: "{{ tools_dir }}/"
             owner: "{{ target_user }}"
             group: "{{ target_user }}"
             remote_src: true
 
         - name: Rename extracted directory
-          command: mv "{{ target_user_home }}/claude-code-mcp-management-main" "{{ target_user_home }}/claude-code-mcp-management"
+          command: mv "{{ tools_dir }}/claude-code-mcp-management-main" "{{ mcp_management_dir }}"
           become_user: "{{ target_user }}"
           args:
-            creates: "{{ target_user_home }}/claude-code-mcp-management"
+            creates: "{{ mcp_management_dir }}"
+
+        - name: Clean up downloaded zip file
+          file:
+            path: "{{ temp_dir }}/claude-code-mcp-management.zip"
+            state: absent
       when: not local_mcp_management.stat.exists
 
     - name: Check if local mcp-servers.json exists

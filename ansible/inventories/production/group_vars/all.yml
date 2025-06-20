@@ -7,12 +7,14 @@ target_user_home: "/home/{{ target_user }}"
 debian_version: bookworm
 
 # === Deployment Paths (Configurable) ===
-# Remote directory where all deployment artifacts are stored
-deployment_base_dir: "/home/{{ target_user }}/.claude-code-vm"
+# Remote directory where all deployment artifacts are stored (hidden by default)
+# Override with custom_deployment_dir variable if needed
+deployment_base_dir: "{{ custom_deployment_dir | default('/home/' + target_user + '/.claude-code-vm') }}"
 scripts_dir: "{{ deployment_base_dir }}/scripts"
 config_dir: "{{ deployment_base_dir }}/config"
 logs_dir: "{{ deployment_base_dir }}/logs"
 temp_dir: "{{ deployment_base_dir }}/tmp"
+tools_dir: "{{ deployment_base_dir }}/tools"
 
 # === Screen Session Configuration ===
 screen_session_name: "{{ custom_session_name | default('DEV') }}"
