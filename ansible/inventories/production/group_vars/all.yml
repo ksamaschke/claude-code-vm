@@ -2,7 +2,7 @@
 # Global variables for all hosts in production environment
 
 # System configuration
-target_user: ksamaschke
+target_user: "{{ target_vm_user | default('developer') }}"
 target_user_home: "/home/{{ target_user }}"
 debian_version: bookworm
 
@@ -15,12 +15,11 @@ logs_dir: "{{ deployment_base_dir }}/logs"
 temp_dir: "{{ deployment_base_dir }}/tmp"
 
 # === Screen Session Configuration ===
-screen_session_name: "KS"
+screen_session_name: "{{ custom_session_name | default('DEV') }}"
 screen_logs_dir: "{{ logs_dir }}/screen"
 
 # Docker configuration
-docker_users:
-  - ksamaschke
+# docker_users automatically includes target_user
 docker_install_compose: true
 docker_compose_version: "latest"
 

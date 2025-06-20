@@ -39,5 +39,5 @@ autoremove_packages: true
 scripts_dir: "{{ target_user_home }}/scripts"
 
 # Screen session configuration  
-screen_session_name: "KS"
+screen_session_name: "{{ custom_session_name | default('DEV') }}"
 screen_logs_dir: "{{ target_user_home }}/logs/screen"

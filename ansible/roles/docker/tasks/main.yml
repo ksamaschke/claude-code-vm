@@ -109,13 +109,20 @@
     - docker
     - users
 
+- name: Set docker users list (include target_user automatically)
+  set_fact:
+    effective_docker_users: "{{ (docker_users | default([])) + [target_user] if target_user is defined else (docker_users | default([])) }}"
+  tags:
+    - docker
+    - users
+
 - name: Add users to docker group
   user:
     name: "{{ item }}"
     groups: docker
     append: true
-  loop: "{{ docker_users }}"
-  when: add_users_to_docker_group and docker_users is defined
+  loop: "{{ effective_docker_users | unique }}"
+  when: add_users_to_docker_group and effective_docker_users | length > 0
   notify: notify user of group change
   tags:
     - docker
@@ -145,12 +152,39 @@
           - "Docker Compose: {{ docker_compose_version.stdout }}"
           - "Service Status: {{ docker_service_status.status.ActiveState }}"
 
-    - name: Test Docker functionality
+    - name: Test Docker functionality (as root - group membership requires logout/login)
       command: docker run --rm hello-world
       register: docker_test
       changed_when: false
-      become_user: "{{ docker_users[0] if docker_users | length > 0 else ansible_user }}"
-      when: docker_users | length > 0
+      # Note: Cannot test as target user during installation due to group activation timing
+
+    - name: Verify users were added to docker group
+      command: groups {{ item }}
+      register: user_group_check
+      loop: "{{ effective_docker_users }}"
+      when: effective_docker_users | length > 0
+      changed_when: false
+      failed_when: false
+
+    - name: Display group membership verification
+      debug:
+        msg: "✓ User {{ item.item }} groups: {{ item.stdout }}"
+      loop: "{{ user_group_check.results }}"
+      when: user_group_check is defined and effective_docker_users | length > 0
+
+    - name: Display critical Docker group membership notice
+      debug:
+        msg:
+          - "⚠️  IMPORTANT: DOCKER GROUP MEMBERSHIP REQUIRES LOGOUT/LOGIN ⚠️"
+          - ""
+          - "Docker has been installed and configured correctly, but you must:"
+          - "1. Log out of your current session completely"
+          - "2. Log back in to activate docker group membership"
+          - "3. Verify with: groups | grep docker"
+          - "4. Test with: docker run --rm hello-world"
+          - ""
+          - "Until you logout/login, Docker will require sudo for this user."
+      when: effective_docker_users | length > 0
 
   when: validate_installation
   tags:

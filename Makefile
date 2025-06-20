@@ -37,7 +37,7 @@ VM_USER ?= root
 TARGET_USER ?= 
 
 # Optional settings with defaults
-SESSION_NAME ?= KS
+SESSION_NAME ?= DEV
 DEPLOYMENT_DIR ?= /home/$(TARGET_USER)/.claude-code-vm
 
 # Authentication settings (optional)
