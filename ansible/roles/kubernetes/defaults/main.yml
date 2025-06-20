@@ -31,6 +31,12 @@ k3s_user_kubeconfig_path: "{{ target_user_home }}/.kube/config"  # Configurable 
 k3s_data_dir: "/var/lib/rancher/k3s"
 k3s_service_name: "k3s"
 
+# Ingress controller configuration (optional but preselected)
+install_nginx_ingress: true       # Install NGINX Ingress Controller (preselected)
+k3s_ingress_controller: "nginx"   # Options: "nginx" (default), "traefik", "none"
+nginx_ingress_version: ""         # NGINX Ingress Controller version (empty for latest)
+nginx_ingress_manifest_url: "https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml"  # Latest when version is empty
+
 # kompose configuration
 install_kompose: true
 kompose_version: "v1.36.0"

@@ -134,6 +134,12 @@
           {% elif k3s_channel %}
           INSTALL_K3S_CHANNEL={{ k3s_channel }}
           {% endif %}
+        k3s_install_args: |
+          {% if install_nginx_ingress or k3s_ingress_controller == "nginx" %}
+          --disable=traefik
+          {% elif k3s_ingress_controller == "none" %}
+          --disable=traefik
+          {% endif %}
       when: k3s_check.rc != 0
       tags:
         - kubernetes
@@ -141,7 +147,7 @@
 
     - name: Download and install k3s
       shell: |
-        curl -sfL {{ k3s_install_script_url }} | {{ k3s_install_env | trim }} sh -
+        curl -sfL {{ k3s_install_script_url }} | {{ k3s_install_env | trim }} sh -s - {{ k3s_install_args | trim }}
       when: k3s_check.rc != 0
       tags:
         - kubernetes
@@ -199,6 +205,69 @@
         - k3s
 
   when: install_k3s
+
+# NGINX Ingress Controller installation
+- name: Install NGINX Ingress Controller
+  block:
+    - name: Wait for k3s to be ready
+      wait_for:
+        port: 6443
+        host: "127.0.0.1"
+        delay: 10
+        timeout: 120
+      tags:
+        - kubernetes
+        - nginx-ingress
+
+    - name: Build NGINX Ingress manifest URL
+      set_fact:
+        nginx_manifest_url: |
+          {% if nginx_ingress_version %}
+          https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-{{ nginx_ingress_version }}/deploy/static/provider/cloud/deploy.yaml
+          {% else %}
+          https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml
+          {% endif %}
+      tags:
+        - kubernetes
+        - nginx-ingress
+
+    - name: Apply NGINX Ingress Controller manifest
+      shell: |
+        k3s kubectl apply -f {{ nginx_manifest_url | trim }}
+      register: nginx_ingress_result
+      tags:
+        - kubernetes
+        - nginx-ingress
+
+    - name: Wait for NGINX Ingress Controller to be ready
+      shell: |
+        k3s kubectl wait --namespace ingress-nginx \
+          --for=condition=ready pod \
+          --selector=app.kubernetes.io/component=controller \
+          --timeout=300s
+      register: nginx_wait_result
+      tags:
+        - kubernetes
+        - nginx-ingress
+
+    - name: Verify NGINX Ingress Controller installation
+      shell: |
+        k3s kubectl get pods -n ingress-nginx
+      register: nginx_pods_check
+      tags:
+        - kubernetes
+        - nginx-ingress
+
+    - name: Display NGINX Ingress status
+      debug:
+        msg:
+          - "=== NGINX Ingress Controller Status ==="
+          - "{{ nginx_pods_check.stdout_lines }}"
+      tags:
+        - kubernetes
+        - nginx-ingress
+
+  when: install_k3s and install_nginx_ingress
 
 # Bash completions setup
 - name: Configure bash completions for Kubernetes tools
