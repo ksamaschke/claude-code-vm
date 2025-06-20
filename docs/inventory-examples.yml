@@ -1,0 +1,143 @@
+---
+# Example inventory configurations for different deployment scenarios
+# Copy and modify these examples based on your needs
+
+# =============================================================================
+# SINGLE MACHINE DEPLOYMENT (Most Common)
+# =============================================================================
+# Use this pattern for deploying to one machine at a time
+# Command: make deploy VM_HOST=192.168.1.100 TARGET_USER=developer
+
+all:
+  children:
+    single:
+      hosts:
+        target:
+          ansible_host: "{{ vm_host }}"
+          ansible_user: "{{ vm_user }}"
+          ansible_ssh_private_key_file: "{{ vm_ssh_key }}"
+          target_user: "{{ target_vm_user }}"
+
+# =============================================================================
+# PRODUCTION GROUP DEPLOYMENT
+# =============================================================================
+# Example for deploying to multiple production servers
+# Command: make deploy DEPLOY_TARGET=production
+
+# all:
+#   children:
+#     production:
+#       hosts:
+#         web-01:
+#           ansible_host: 10.0.1.10
+#           ansible_user: root
+#           ansible_ssh_private_key_file: ~/.ssh/prod_key
+#           target_user: webapp
+#         web-02:
+#           ansible_host: 10.0.1.11
+#           ansible_user: root
+#           ansible_ssh_private_key_file: ~/.ssh/prod_key
+#           target_user: webapp
+#         db-01:
+#           ansible_host: 10.0.1.20
+#           ansible_user: root
+#           ansible_ssh_private_key_file: ~/.ssh/prod_key
+#           target_user: database
+
+# =============================================================================
+# STAGING GROUP DEPLOYMENT
+# =============================================================================
+# Example for deploying to staging environment
+# Command: make deploy DEPLOY_TARGET=staging
+
+# all:
+#   children:
+#     staging:
+#       hosts:
+#         staging-web:
+#           ansible_host: 10.0.2.10
+#           ansible_user: root
+#           ansible_ssh_private_key_file: ~/.ssh/staging_key
+#           target_user: developer
+#         staging-db:
+#           ansible_host: 10.0.2.20
+#           ansible_user: root
+#           ansible_ssh_private_key_file: ~/.ssh/staging_key
+#           target_user: developer
+
+# =============================================================================
+# DEVELOPMENT GROUP DEPLOYMENT
+# =============================================================================
+# Example for deploying to development VMs
+# Command: make deploy DEPLOY_TARGET=development
+
+# all:
+#   children:
+#     development:
+#       hosts:
+#         dev-vm-1:
+#           ansible_host: 192.168.1.100
+#           ansible_user: root
+#           ansible_ssh_private_key_file: ~/.ssh/id_rsa
+#           target_user: developer
+#         dev-vm-2:
+#           ansible_host: 192.168.1.101
+#           ansible_user: root
+#           ansible_ssh_private_key_file: ~/.ssh/id_rsa
+#           target_user: developer
+
+# =============================================================================
+# MIXED ENVIRONMENT DEPLOYMENT
+# =============================================================================
+# Example with multiple environments and host-specific settings
+# Commands: 
+#   make deploy DEPLOY_TARGET=production
+#   make deploy DEPLOY_TARGET=staging
+#   make deploy DEPLOY_TARGET=development
+
+# all:
+#   children:
+#     production:
+#       hosts:
+#         prod-web-01:
+#           ansible_host: 10.0.1.10
+#           ansible_user: root
+#           target_user: webapp
+#           # Custom deployment directory for production
+#           deployment_base_dir: /opt/claude-code-vm
+#         prod-web-02:
+#           ansible_host: 10.0.1.11
+#           ansible_user: root
+#           target_user: webapp
+#           deployment_base_dir: /opt/claude-code-vm
+#       vars:
+#         # Production-specific variables
+#         install_docker: true
+#         install_kubernetes_tools: true
+#         screen_session_name: PROD
+#         
+#     staging:
+#       hosts:
+#         staging-01:
+#           ansible_host: 10.0.2.10
+#           ansible_user: root
+#           target_user: tester
+#       vars:
+#         # Staging-specific variables
+#         install_docker: true
+#         install_kubernetes_tools: false
+#         screen_session_name: STAGING
+#         
+#     development:
+#       hosts:
+#         dev-laptop:
+#           ansible_host: 192.168.1.100
+#           ansible_user: developer
+#           target_user: developer
+#           # Use custom SSH key for development
+#           ansible_ssh_private_key_file: ~/.ssh/dev_key
+#       vars:
+#         # Development-specific variables
+#         install_docker: true
+#         install_kubernetes_tools: false
+#         screen_session_name: DEV
