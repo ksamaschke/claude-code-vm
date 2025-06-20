@@ -106,6 +106,11 @@ ifneq ($(ALLOW_COMMAND_EXECUTION),)
 	EXTRA_VARS += allow_command_execution=$(ALLOW_COMMAND_EXECUTION)
 endif
 
+# Add package management options
+ifneq ($(SKIP_PACKAGE_UPGRADE),)
+	EXTRA_VARS += upgrade_packages=false
+endif
+
 # =============================================================================
 # Help & Information
 # =============================================================================
@@ -143,6 +148,9 @@ help: ## Show this help message
 	@echo "  $(YELLOW)CREATE_USER_CLAUDE_CONFIG$(NC)  Create ~/.claude/CLAUDE.md for user (default: true)"
 	@echo "  $(YELLOW)ALLOW_COMMAND_EXECUTION$(NC)    Allow remote command execution (default: true)"
 	@echo ""
+	@echo "$(WHITE)📦 Package Management Options:$(NC)"
+	@echo "  $(YELLOW)SKIP_PACKAGE_UPGRADE$(NC)       Skip system package upgrades (for fresh VMs with active apt)"
+	@echo ""
 	@echo "$(WHITE)📝 Usage Examples:$(NC)"
 	@echo "  $(CYAN)# Single machine deployment (most common):$(NC)"
 	@echo "  $(CYAN)make deploy VM_HOST=192.168.1.100 TARGET_USER=developer$(NC)"
@@ -157,6 +165,9 @@ help: ## Show this help message
 	@echo "  $(CYAN)# User configuration options:$(NC)"
 	@echo "  $(CYAN)make deploy VM_HOST=10.0.1.5 TARGET_USER=dev CREATE_USER_CLAUDE_CONFIG=false$(NC)"
 	@echo "  $(CYAN)make deploy VM_HOST=10.0.1.5 TARGET_USER=dev ALLOW_COMMAND_EXECUTION=false$(NC)"
+	@echo ""
+	@echo "  $(CYAN)# Package management options:$(NC)"
+	@echo "  $(CYAN)make deploy VM_HOST=10.0.1.5 TARGET_USER=dev SKIP_PACKAGE_UPGRADE=true$(NC)"
 	@echo ""
 	@echo "  $(CYAN)# Group deployment (multiple machines):$(NC)"
 	@echo "  $(CYAN)make deploy DEPLOY_TARGET=production$(NC)"
