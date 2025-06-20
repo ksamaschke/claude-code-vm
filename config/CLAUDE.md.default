@@ -2,41 +2,78 @@
 
 This file provides guidance for Claude Code when working in this development environment.
 
-## Kubernetes Configuration
+## Environment Overview
 
-### Deployed Kubernetes Runtime
-- **Runtime**: {{ 'k3s' if install_k3s else 'KIND' if install_kind else 'None' }} ({{ 'lightweight Kubernetes distribution' if install_k3s else 'Kubernetes IN Docker' if install_kind else 'No Kubernetes runtime installed' }})
-- **K3s Installed**: {{ 'Yes' if install_k3s else 'No' }}
-- **KIND Installed**: {{ 'Yes' if install_kind else 'No' }}
+### Development Stack
+- **Host OS**: {{ ansible_distribution }} {{ ansible_distribution_version }}
+- **Target User**: {{ target_user }}
+- **Deployment Directory**: {{ deployment_base_dir }}
+
+### Container & Orchestration
+- **Docker**: {{ 'Installed' if install_docker_with_k3s or not install_k3s else 'Not installed' }}
+- **Kubernetes Runtime**: {{ 'k3s' if install_k3s else 'KIND' if install_kind else 'None' }}
+{% if install_k3s %}
+- **k3s Version**: Latest stable
 - **Ingress Controller**: {{ 'NGINX Ingress Controller' if install_nginx_ingress else 'Traefik' if k3s_ingress_controller == 'traefik' else 'None' }}
-
-### Kubernetes Access
-- **Kubeconfig Location**: `{{ k3s_user_kubeconfig_path if install_k3s else '~/.kube/config' }}`
-{% if install_k3s %}
-- **kubectl Command**: `k3s kubectl` (aliased as `kubectl` and `k`)
-- **Direct k3s Access**: Use `k3s kubectl` for direct access
-- **Cluster Type**: Single-node k3s cluster
+- **Kubeconfig**: `{{ k3s_user_kubeconfig_path }}`
 {% elif install_kind %}
-- **kubectl Command**: Standard `kubectl` and `k` alias
-- **KIND Access**: Use `kind` commands for cluster management
-- **Cluster Type**: KIND cluster
+- **KIND**: Available for local Kubernetes development
+- **Kubeconfig**: `~/.kube/config`
 {% endif %}
 
-### Useful Kubernetes Aliases
-```bash
+### Development Tools
+- **Node.js**: Latest LTS with npm global packages
+- **Claude Code CLI**: Installed with MCP server integration
+- **Git**: Multi-provider credential management
+- **Screen**: Persistent terminal sessions
+
+## Command Execution Policy
+
+{% if allow_command_execution | default(true) | bool %}
+### Remote Command Execution Enabled
+
+This development environment **allows Claude Code to execute commands remotely**. The following commands can be run automatically when requested:
+
+**Kubernetes Commands:**
 {% if install_k3s %}
-alias k='k3s kubectl'           # Short kubectl via k3s
-alias kubectl='k3s kubectl'    # Standard kubectl via k3s  
-alias kgp='k3s kubectl get pods'
-alias kgs='k3s kubectl get services'
-alias kgd='k3s kubectl get deployments'
-{% else %}
-alias k=kubectl                # Short kubectl command
-alias kgp='kubectl get pods'   # Get pods
-alias kgs='kubectl get services' # Get services
-alias kgd='kubectl get deployments' # Get deployments
+- `k3s kubectl get nodes`, `k3s kubectl get pods -A`
+- `k3s kubectl logs`, `k3s kubectl describe`, `k3s kubectl port-forward`
+- `k3s kubectl apply`, `k3s kubectl delete` (for development resources)
+{% elif install_kind %}
+- `kubectl get nodes`, `kubectl get pods -A`
+- `kubectl logs`, `kubectl describe`, `kubectl port-forward`
+- `kind get clusters`, `kind load docker-image`
 {% endif %}
-```
+
+**Docker Commands:**
+{% if install_docker_with_k3s or not install_k3s %}
+- `docker ps`, `docker images`, `docker logs`
+- `docker build`, `docker run`, `docker exec`
+- `docker compose up`, `docker compose down`, `docker compose logs`
+{% endif %}
+
+**System Commands:**
+- `ls`, `cat`, `grep`, `find`, `tail`, `head`
+- `ps`, `top`, `df`, `free`, `systemctl status`
+- `git status`, `git log`, `git branch`, `git diff`
+- `npm list`, `node --version`, `claude --version`
+
+**Available Aliases:**
+{% if install_k3s %}
+- `k`, `kubectl`, `kgp`, `kgs`, `kgd` (Kubernetes)
+{% elif install_kind %}
+- `k`, `kgp`, `kgs`, `kgd` (Kubernetes)
+{% endif %}
+{% if install_docker_with_k3s or not install_k3s %}
+- `d`, `dc`, `dps`, `di` (Docker)
+{% endif %}
+
+{% else %}
+### Remote Command Execution Disabled
+
+This development environment **does not allow Claude Code to execute commands remotely**. You will need to run commands manually and share outputs as needed.
+
+{% endif %}
 
 ## Git Branch and Push Policy
 
@@ -46,6 +83,59 @@ alias kgd='kubectl get deployments' # Get deployments
 - **Test thoroughly** before committing
 - **Verify changes work** with end-to-end testing
 - **Create proper commit messages** describing the change
+- **Always generate proper .gitignore files** before first commit
+
+### Required .gitignore Patterns
+```gitignore
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn-integrity
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Kubernetes
+*.kubeconfig
+kubeconfig*
+
+# Claude Code files (IMPORTANT)
+CLAUDE.md
+.claude/
+.claude-directories
+
+# Logs
+logs
+*.log
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# OS files
+.DS_Store
+Thumbs.db
+```
 
 ### Branch Naming
 - `feature/description` - for new features
@@ -55,16 +145,18 @@ alias kgd='kubectl get deployments' # Get deployments
 ### Commit Guidelines
 - **Never mention Claude** in commit messages or as contributor
 - **Ensure no sensitive information** is exposed in commits
+- **Always include proper .gitignore** before first commit
 - **Exclude Claude-related files** (CLAUDE.md, .claude directories) from commits
 - **Use clear, descriptive commit messages** focusing on the "why"
 
 ### Push Policy
 1. Create branch: `git checkout -b feature/my-feature`
-2. Make changes and test thoroughly
-3. Commit with clear message
-4. Push branch: `git push -u origin feature/my-feature`
-5. Create pull request for review
-6. **Only merge to main after explicit authorization**
+2. Generate/update .gitignore file
+3. Make changes and test thoroughly
+4. Commit with clear message
+5. Push branch: `git push -u origin feature/my-feature`
+6. Create pull request for review
+7. **Only merge to main after explicit authorization**
 
 ## Development Environment
 

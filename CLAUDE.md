@@ -144,5 +144,27 @@ After successful deployment, the target VM will have:
 - Kubernetes development tools with bash completions
 - MCP servers installed and configured for Claude Code with externalized API keys
 - SSH keys generated for additional authentication options
+- **User CLAUDE.md configuration** with environment-specific guidance
+
+### User CLAUDE.md Configuration
+
+The deployment optionally creates `~/.claude/CLAUDE.md` (preselected) containing:
+
+- **Environment Overview**: Actual deployed components (k3s/KIND/Docker)
+- **Command Execution Policy**: Optional remote command execution (preselected)
+- **Git Workflow**: Branch policy with required .gitignore patterns
+- **Build & Deployment**: Runtime-specific development workflows
+- **Quick Reference**: Aliases, paths, and environment-specific commands
+
+**Configuration Options:**
+- `create_user_claude_config: true` - Generate user CLAUDE.md (preselected)
+- `allow_command_execution: true` - Enable remote command execution (preselected)
+
+**Command Execution Feature:**
+When enabled, Claude Code can automatically execute common commands:
+- Kubernetes: `kubectl get pods`, `kubectl logs`, `kubectl port-forward`
+- Docker: `docker ps`, `docker logs`, `docker compose up`
+- System: `ls`, `cat`, `ps`, `git status`, `npm list`
+- Development: All configured aliases and shortcuts
 
 Users must log out/in or run `source ~/.bashrc` to update PATH and group memberships after deployment. MCP servers will be automatically available in Claude Code after restart.

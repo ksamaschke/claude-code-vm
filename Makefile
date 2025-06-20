@@ -97,6 +97,15 @@ ifneq ($(MCP_FILE),mcp-servers.json)
 	EXTRA_VARS += custom_mcp_servers_file=$(MCP_FILE)
 endif
 
+# Add user configuration options
+ifneq ($(CREATE_USER_CLAUDE_CONFIG),)
+	EXTRA_VARS += create_user_claude_config=$(CREATE_USER_CLAUDE_CONFIG)
+endif
+
+ifneq ($(ALLOW_COMMAND_EXECUTION),)
+	EXTRA_VARS += allow_command_execution=$(ALLOW_COMMAND_EXECUTION)
+endif
+
 # =============================================================================
 # Help & Information
 # =============================================================================
@@ -130,6 +139,10 @@ help: ## Show this help message
 	@echo "  $(YELLOW)USE_BECOME_PASSWORD$(NC)  Sudo requires password (default: $(USE_BECOME_PASSWORD))"
 	@echo "  $(YELLOW)BECOME_PASSWORD$(NC)      Sudo password (if USE_BECOME_PASSWORD=true)"
 	@echo ""
+	@echo "$(WHITE)🔧 User Configuration Options:$(NC)"
+	@echo "  $(YELLOW)CREATE_USER_CLAUDE_CONFIG$(NC)  Create ~/.claude/CLAUDE.md for user (default: true)"
+	@echo "  $(YELLOW)ALLOW_COMMAND_EXECUTION$(NC)    Allow remote command execution (default: true)"
+	@echo ""
 	@echo "$(WHITE)📝 Usage Examples:$(NC)"
 	@echo "  $(CYAN)# Single machine deployment (most common):$(NC)"
 	@echo "  $(CYAN)make deploy VM_HOST=192.168.1.100 TARGET_USER=developer$(NC)"
@@ -140,6 +153,10 @@ help: ## Show this help message
 	@echo "  $(CYAN)make deploy VM_HOST=10.0.1.5 TARGET_USER=dev TARGET_SSH_KEY=~/.ssh/dev_key$(NC)"
 	@echo "  $(CYAN)make deploy VM_HOST=10.0.1.5 TARGET_USER=dev USE_SSH_PASSWORD=true SSH_PASSWORD=secret$(NC)"
 	@echo "  $(CYAN)make deploy VM_HOST=10.0.1.5 TARGET_USER=dev USE_BECOME_PASSWORD=true BECOME_PASSWORD=sudo123$(NC)"
+	@echo ""
+	@echo "  $(CYAN)# User configuration options:$(NC)"
+	@echo "  $(CYAN)make deploy VM_HOST=10.0.1.5 TARGET_USER=dev CREATE_USER_CLAUDE_CONFIG=false$(NC)"
+	@echo "  $(CYAN)make deploy VM_HOST=10.0.1.5 TARGET_USER=dev ALLOW_COMMAND_EXECUTION=false$(NC)"
 	@echo ""
 	@echo "  $(CYAN)# Group deployment (multiple machines):$(NC)"
 	@echo "  $(CYAN)make deploy DEPLOY_TARGET=production$(NC)"

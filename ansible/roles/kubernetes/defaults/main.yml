@@ -39,6 +39,7 @@ nginx_ingress_manifest_url: "https://raw.githubusercontent.com/kubernetes/ingres
 
 # User configuration (optional but preselected)
 create_user_claude_config: true   # Create CLAUDE.md configuration file for user (preselected)
+allow_command_execution: true     # Allow Claude Code to execute commands on this VM (preselected)
 
 # kompose configuration
 install_kompose: true
