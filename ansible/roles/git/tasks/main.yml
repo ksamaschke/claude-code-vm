@@ -33,9 +33,6 @@
       # Load environment variables
       export $(grep -v '^#' "{{ env_file_path }}" | grep -v '^$' | xargs)
       
-      # Find all unique Git server IDs
-      server_ids=$(grep '^GIT_SERVER_' "{{ env_file_path }}" | grep '_URL=' | sed 's/GIT_SERVER_//g' | sed 's/_URL=.*//g' | sort -u)
-      
       # Build JSON output
       echo "{"
       echo "  \"git_user_name\": \"${GIT_USER_NAME:-}\","
@@ -47,29 +44,54 @@
       echo "  \"git_servers\": ["
       
       first=true
+      
+      # Handle well-known providers (GitHub, GitLab)
+      if [ -n "${GITHUB_USERNAME:-}" ] && [ -n "${GITHUB_PAT:-}" ]; then
+        if [ "$first" = true ]; then first=false; else echo ","; fi
+        echo "    {"
+        echo "      \"id\": \"GITHUB\","
+        echo "      \"url\": \"https://github.com\","
+        echo "      \"username\": \"${GITHUB_USERNAME}\","
+        echo "      \"pat\": \"${GITHUB_PAT}\","
+        echo "      \"host\": \"github.com\""
+        echo -n "    }"
+      fi
+      
+      if [ -n "${GITLAB_USERNAME:-}" ] && [ -n "${GITLAB_PAT:-}" ]; then
+        if [ "$first" = true ]; then first=false; else echo ","; fi
+        echo "    {"
+        echo "      \"id\": \"GITLAB\","
+        echo "      \"url\": \"https://gitlab.com\","
+        echo "      \"username\": \"${GITLAB_USERNAME}\","
+        echo "      \"pat\": \"${GITLAB_PAT}\","
+        echo "      \"host\": \"gitlab.com\""
+        echo -n "    }"
+      fi
+      
+      # Handle custom Git servers (GIT_*_URL pattern)
+      server_ids=$(grep '^GIT_[A-Z0-9_]*_URL=' "{{ env_file_path }}" | sed 's/GIT_//g' | sed 's/_URL=.*//g' | sort -u)
+      
       for server_id in $server_ids; do
-        if [ "$first" = true ]; then
-          first=false
-        else
-          echo ","
-        fi
-        
         # Get variables for this server
-        url_var="GIT_SERVER_${server_id}_URL"
-        username_var="GIT_SERVER_${server_id}_USERNAME"
-        pat_var="GIT_SERVER_${server_id}_PAT"
+        url_var="GIT_${server_id}_URL"
+        username_var="GIT_${server_id}_USERNAME"
+        pat_var="GIT_${server_id}_PAT"
         
         url=$(eval echo \$${url_var})
         username=$(eval echo \$${username_var})
         pat=$(eval echo \$${pat_var})
         
-        echo "    {"
-        echo "      \"id\": \"${server_id}\","
-        echo "      \"url\": \"${url}\","
-        echo "      \"username\": \"${username}\","
-        echo "      \"pat\": \"${pat}\","
-        echo "      \"host\": \"$(echo ${url} | sed 's|^https\?://||' | sed 's|/.*||')\""
-        echo -n "    }"
+        # Only add if all required fields are present
+        if [ -n "$url" ] && [ -n "$username" ] && [ -n "$pat" ]; then
+          if [ "$first" = true ]; then first=false; else echo ","; fi
+          echo "    {"
+          echo "      \"id\": \"${server_id}\","
+          echo "      \"url\": \"${url}\","
+          echo "      \"username\": \"${username}\","
+          echo "      \"pat\": \"${pat}\","
+          echo "      \"host\": \"$(echo ${url} | sed 's|^https\?://||' | sed 's|/.*||')\""
+          echo -n "    }"
+        fi
       done
       
       echo ""

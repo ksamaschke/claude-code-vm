@@ -18,29 +18,33 @@ Comprehensive configuration options for the Claude Code VM deployment system.
 ## Environment Variables (.env)
 
 ### Required Git Configuration
-At least one Git server must be configured:
+At least one Git server must be configured. The system supports well-known providers with automatic URLs and unlimited custom servers:
 
 ```bash
-# GitHub
-GIT_SERVER_GITHUB_URL="https://github.com"
-GIT_SERVER_GITHUB_USERNAME="yourusername"
-GIT_SERVER_GITHUB_PAT="ghp_xxxxxxxxxxxxxxxxxxxx"
+# Well-known providers (URL is automatic)
+GITHUB_USERNAME="yourusername"
+GITHUB_PAT="ghp_xxxxxxxxxxxxxxxxxxxx"
 
-# GitLab
-GIT_SERVER_GITLAB_URL="https://gitlab.com"
-GIT_SERVER_GITLAB_USERNAME="yourusername"
-GIT_SERVER_GITLAB_PAT="glpat-xxxxxxxxxxxxxxxxxxxx"
+GITLAB_USERNAME="yourusername"  
+GITLAB_PAT="glpat-xxxxxxxxxxxxxxxxxxxx"
 
-# Azure DevOps
-GIT_SERVER_AZURE_URL="https://dev.azure.com/yourorg"
-GIT_SERVER_AZURE_USERNAME="yourusername"
-GIT_SERVER_AZURE_PAT="xxxxxxxxxxxxxxxxxxxxxxx"
+# Custom Git servers (unlimited) - URL required
+GIT_COMPANY_URL="https://gitlab.company.com"
+GIT_COMPANY_USERNAME="yourusername"
+GIT_COMPANY_PAT="your-token"
 
-# Custom Git Server
-GIT_SERVER_CUSTOM_URL="https://git.company.com"
-GIT_SERVER_CUSTOM_USERNAME="yourusername"
-GIT_SERVER_CUSTOM_PAT="your-token"
+GIT_AZURE_URL="https://dev.azure.com/yourorg"
+GIT_AZURE_USERNAME="yourusername"
+GIT_AZURE_PAT="xxxxxxxxxxxxxxxxxxxxxxx"
+
+GIT_ENTERPRISE_URL="https://github.enterprise.com"
+GIT_ENTERPRISE_USERNAME="yourusername"
+GIT_ENTERPRISE_PAT="ghp_xxxxxxxxxxxxxxxxxxxxxxx"
 ```
+
+**Two-tier system**: GitHub.com and GitLab.com use automatic URLs. All other Git servers use the `GIT_{NAME}_*` pattern with configurable URLs.
+
+**For detailed examples** including multiple GitLab instances, enterprise setups, and mixed environments, see [Git Configuration Guide](git-configuration.md).
 
 ### MCP Server API Keys (Optional)
 ```bash

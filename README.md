@@ -64,9 +64,15 @@ make deploy-docker VM_HOST=your.ip TARGET_USER=user   # Docker only
 ```bash
 # OPTIONAL: Automated Git credential setup
 # These credentials will be securely stored on the target VM
-GIT_SERVER_GITHUB_URL="https://github.com"
-GIT_SERVER_GITHUB_USERNAME="yourusername"
-GIT_SERVER_GITHUB_PAT="your_token"  # Your Personal Access Token
+
+# Well-known providers (URL is automatic)
+GITHUB_USERNAME="yourusername"
+GITHUB_PAT="your_token"  # Your Personal Access Token
+
+# Custom Git servers (unlimited)
+# GIT_COMPANY_URL="https://gitlab.company.com"
+# GIT_COMPANY_USERNAME="yourusername"
+# GIT_COMPANY_PAT="your_token"
 
 # OPTIONAL: MCP API keys for enhanced AI functionality
 BRAVE_API_KEY="your_api_key"  # For web search capabilities
@@ -112,6 +118,7 @@ make deploy VM_HOST=ip TARGET_USER=user USE_SSH_PASSWORD=true SSH_PASSWORD=pass
 - **[🔧 Installation Guide](docs/installation.md)** - Prerequisites and setup
 - **[🔐 Authentication Guide](docs/authentication.md)** - SSH keys, passwords, security
 - **[⚙️ Configuration Guide](docs/configuration.md)** - Environment variables and settings
+- **[🔗 Git Configuration Guide](docs/git-configuration.md)** - Multiple Git providers, enterprise setups
 - **[🔌 MCP Servers Guide](docs/components-mcp.md)** - Model Context Protocol server setup
 
 ## 🏗️ Project Structure
