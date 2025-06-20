@@ -23,7 +23,7 @@ Complete installation and setup guide for Claude Code VM deployment system.
 
 ```bash
 # Clone repository
-git clone <repository-url>
+git clone https://github.com/ksamaschke/claude-code-vm.git
 cd claude-code-vm
 
 # First-time setup
@@ -43,7 +43,7 @@ make deploy VM_HOST=your.vm.ip.address TARGET_USER=yourusername
 
 ```bash
 # Clone repository
-git clone <repository-url>
+git clone https://github.com/ksamaschke/claude-code-vm.git
 cd claude-code-vm
 
 # Copy environment template

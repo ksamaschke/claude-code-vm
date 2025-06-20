@@ -11,7 +11,7 @@ Deploy Claude Code to a Debian VM in 5 minutes.
 ## 1. Clone and Setup
 
 ```bash
-git clone <this-repo>
+git clone https://github.com/ksamaschke/claude-code-vm.git
 cd claude-code-vm
 make setup
 ```

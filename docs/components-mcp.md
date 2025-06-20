@@ -6,6 +6,8 @@ Complete guide to Model Context Protocol (MCP) server configuration for enhanced
 
 Model Context Protocol (MCP) servers are external tools that extend Claude Code with specialized capabilities. They run as separate processes and communicate with Claude Code via a standardized protocol.
 
+**MCP Deployment**: This system uses the [claude-code-mcp-management](https://github.com/ksamaschke/claude-code-mcp-management) external project to handle MCP server installation and configuration. This specialized tool automates the complex process of MCP server setup, dependency management, and configuration generation.
+
 ### Key Benefits
 - **Real-time Data Access** - Web search, APIs, databases
 - **External Tool Integration** - File processing, browser automation
@@ -61,9 +63,10 @@ UPSTASH_REDIS_REST_TOKEN="your_redis_token"
 
 **How it works**:
 1. System scans `.env` for known API key patterns
-2. Only configures MCP servers with valid API keys
-3. Automatically generates `mcp-servers.json` configuration
-4. Deploys encrypted credentials to target VM
+2. Downloads/uses [claude-code-mcp-management](https://github.com/ksamaschke/claude-code-mcp-management) tool
+3. External tool generates `mcp-servers.json` configuration based on available API keys
+4. Only configures MCP servers with valid API keys
+5. Deploys encrypted credentials to target VM
 
 ### 2. Manual Configuration
 
@@ -249,6 +252,99 @@ Edit `mcp-servers.json` to include only desired servers:
   }
 }
 ```
+
+### Using External Configuration Files
+
+The deployment system supports custom paths for environment and MCP configuration files, enabling separation of configurations across different environments and better security practices.
+
+#### Configuration Variables
+
+- **ENV_FILE**: Path to environment file (default: `.env`)
+- **MCP_FILE**: Path to MCP servers configuration (default: `mcp-servers.json`)
+
+#### Common Use Cases
+
+**Production Environment with Separate Configs:**
+```bash
+# Use production-specific environment and MCP configuration
+make deploy-mcp VM_HOST=prod.example.com TARGET_USER=webapp \
+    ENV_FILE=/secure/configs/production.env \
+    MCP_FILE=/secure/configs/production-mcp.json
+```
+
+**Development with Shared Team Configuration:**
+```bash
+# Use shared team environment file with custom MCP setup
+make deploy-mcp VM_HOST=dev.local TARGET_USER=developer \
+    ENV_FILE=/team/shared/dev-team.env \
+    MCP_FILE=~/.config/my-custom-mcp.json
+```
+
+**Security-Focused Deployment:**
+```bash
+# Keep sensitive files outside project directory
+make deploy-mcp VM_HOST=secure.internal TARGET_USER=service \
+    ENV_FILE=/etc/claude-code/secrets.env \
+    MCP_FILE=/etc/claude-code/mcp-servers.json
+```
+
+#### Configuration File Structure
+
+**External Environment File Example:**
+```bash
+# /secure/configs/production.env
+GIT_SERVER_GITHUB_URL="https://github.com"
+GIT_SERVER_GITHUB_USERNAME="prod-bot"
+GIT_SERVER_GITHUB_PAT="prod_token_here"
+
+BRAVE_API_KEY="production_brave_key"
+TAVILY_API_KEY="production_tavily_key"
+UPSTASH_REDIS_REST_URL="https://prod-redis.upstash.io"
+UPSTASH_REDIS_REST_TOKEN="prod_redis_token"
+```
+
+**External MCP Configuration Example:**
+```json
+{
+  "mcpServers": {
+    "brave-search": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-brave-search"],
+      "env": {
+        "BRAVE_API_KEY": "{{ BRAVE_API_KEY }}"
+      }
+    },
+    "memory": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-memory"]
+    }
+  }
+}
+```
+
+#### Benefits of External Configuration
+
+- **Environment Separation**: Different configs for dev/staging/production
+- **Security**: Keep sensitive files outside version control
+- **Team Collaboration**: Share environment files without exposing personal tokens
+- **Compliance**: Meet security requirements for credential storage
+- **Flexibility**: Override defaults without modifying project files
+
+#### File Path Resolution
+
+- **Relative paths** are relative to the project root
+- **Absolute paths** can reference any accessible location
+- **Tilde expansion** (`~`) is supported for user home directory
+- **Environment variables** in paths are expanded (e.g., `$HOME/configs/.env`)
+
+#### Integration with claude-code-mcp-management
+
+The external [claude-code-mcp-management](https://github.com/ksamaschke/claude-code-mcp-management) tool automatically handles:
+- **Custom file paths**: Reads from ENV_FILE and MCP_FILE locations
+- **Environment variable substitution**: Replaces placeholders in MCP configurations
+- **Dependency management**: Installs required npm packages and Docker images
+- **Configuration validation**: Ensures all required API keys are present
+- **Error handling**: Provides detailed feedback on configuration issues
 
 ## Performance Optimization
 
