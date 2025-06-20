@@ -19,6 +19,7 @@ kind_install_path: "/usr/local/bin/kind"
 
 # k3s configuration (preselected)
 install_k3s: true
+install_docker_with_k3s: true  # Docker still useful for development, Docker Compose, image building
 # Version control (choose one approach):
 k3s_version: ""                    # Specific version (e.g., "v1.31.3+k3s1") or empty for latest
 k3s_channel: ""                    # Channel-based install ("stable", "latest", "testing") or empty

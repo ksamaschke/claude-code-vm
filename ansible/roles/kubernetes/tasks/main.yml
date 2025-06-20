@@ -191,7 +191,7 @@
         - k3s
 
     - name: Verify k3s installation
-      command: k3s kubectl version --short
+      command: k3s kubectl version --client
       register: k3s_version_check
       changed_when: false
       tags:
@@ -271,10 +271,10 @@
         - bash-completion
         - k3s
 
-    - name: Add Kubernetes aliases to user .bashrc
+    - name: Add Kubernetes and Docker aliases to user .bashrc
       blockinfile:
         path: "{{ user_info.results[index].ansible_facts.getent_passwd[item][4] }}/.bashrc"
-        marker: "# {mark} ANSIBLE MANAGED BLOCK - Kubernetes aliases"
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - Kubernetes and Docker aliases"
         block: |
           # Kubernetes aliases (kubectl or k3s kubectl)
           {% if install_k3s %}
@@ -283,12 +283,21 @@
           alias kgp='k3s kubectl get pods'
           alias kgs='k3s kubectl get services'
           alias kgd='k3s kubectl get deployments'
+          # Set up completion for k3s kubectl and k alias
+          complete -o default -F __start_kubectl k
           {% else %}
           alias k=kubectl
           alias kgp='kubectl get pods'
           alias kgs='kubectl get services'
           alias kgd='kubectl get deployments'
           complete -o default -F __start_kubectl k
+          {% endif %}
+          {% if install_docker_with_k3s or not install_k3s %}
+          # Docker aliases
+          alias d=docker
+          alias dc='docker compose'
+          alias dps='docker ps'
+          alias di='docker images'
           {% endif %}
         create: true
         owner: "{{ item }}"
