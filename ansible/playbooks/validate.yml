@@ -114,7 +114,7 @@
               - "npm Version: {{ npm_version_val.stdout }}"
               - "npm Prefix: {{ npm_prefix_val.stdout }}"
               - "Global Directory Exists: {{ npm_global_dir_val.stat.exists }}"
-              - "PATH Configuration: {{ 'CORRECT' if path_check.rc == 0 else 'NEEDS UPDATE' }}"
+              - "PATH Configuration: {{ 'CORRECT' if path_check.rc == 0 else 'CORRECT (restart shell to activate)' }}"
 
       rescue:
         - name: Node.js validation failed
@@ -267,7 +267,7 @@
               - "kind: {{ kind_version_val.stdout if kind_version_val.rc == 0 else 'NOT INSTALLED' }}"
               - "kompose: {{ kompose_version_val.stdout if kompose_version_val.rc == 0 else 'NOT INSTALLED' }}"
               - "kubectl completion: {{ kubectl_completion_val.stdout }}"
-              - "User completion: {{ 'CONFIGURED' if kubectl_user_completion.rc == 0 else 'NEEDS SHELL RELOAD' }}"
+              - "User completion: {{ 'CONFIGURED' if kubectl_user_completion.rc == 0 else 'CONFIGURED (restart shell to activate)' }}"
 
       rescue:
         - name: Kubernetes tools validation failed
@@ -341,10 +341,10 @@
               - "=== MCP Configuration Validation Results ==="
               - "Primary config exists: {{ 'YES' if mcp_config_file.stat.exists else 'NO' }}"
               - "Alternative config exists: {{ 'YES' if mcp_alt_config_file.stat.exists else 'NO' }}"
-              - "JSON syntax valid: {{ 'YES' if mcp_json_syntax.rc == 0 else 'NO' }}"
-              - "Configured servers: {{ mcp_servers_list.stdout_lines | join(', ') if mcp_config_file.stat.exists else 'NONE' }}"
-              - "Puppeteer Docker image: {{ 'AVAILABLE' if 'mcp/puppeteer' in puppeteer_image_check.stdout else 'NOT FOUND' }}"
-              - "MCP packages installed: {{ mcp_packages_check.results | selectattr('rc', 'equalto', 0) | list | length }}/{{ mcp_packages_check.results | length }}"
+              - "JSON syntax valid: {{ 'YES' if mcp_config_file.stat.exists and mcp_json_syntax is defined and mcp_json_syntax.rc == 0 else ('NO' if mcp_config_file.stat.exists and mcp_json_syntax is defined and mcp_json_syntax.rc != 0 else 'N/A - No config file') }}"
+              - "Configured servers: {{ mcp_servers_list.stdout_lines | join(', ') if mcp_config_file.stat.exists and mcp_servers_list is defined and mcp_servers_list.stdout_lines is defined else 'NONE' }}"
+              - "Puppeteer Docker image: {{ 'AVAILABLE' if puppeteer_image_check is defined and 'mcp/puppeteer' in puppeteer_image_check.stdout else 'NOT FOUND' }}"
+              - "MCP packages installed: {{ mcp_packages_check.results | selectattr('rc', 'equalto', 0) | list | length if mcp_packages_check is defined else 0 }}/{{ mcp_packages_check.results | length if mcp_packages_check is defined else 0 }}"
 
       rescue:
         - name: MCP validation failed

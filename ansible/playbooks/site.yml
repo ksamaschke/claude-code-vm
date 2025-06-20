@@ -77,8 +77,12 @@
         - k8s
         - bash-completion
 
-# MCP deployment is handled by external claude-code-mcp-management tool
-# Use: make deploy-mcp to deploy MCP servers separately
+    - role: mcp
+      tags:
+        - mcp
+        - model-context-protocol
+        - claude-code-mcp
+        - ai
 
   post_tasks:
     - name: Final system information

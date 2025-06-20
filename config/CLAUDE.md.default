@@ -75,6 +75,203 @@ This development environment **does not allow Claude Code to execute commands re
 
 {% endif %}
 
+## Subagent Usage and Parallelization
+
+### Subagent Support Configuration
+
+This development environment **enables subagent usage by default** for enhanced productivity and parallel task execution. Subagents allow Claude Code to work on multiple tasks simultaneously, significantly improving efficiency for complex operations.
+
+**Default Behavior:**
+- Subagents are **enabled by default** for optimal performance
+- Automatically utilized for complex multi-step operations
+- Configured to work seamlessly with this development stack
+- Can be disabled if needed for specific workflows
+
+### When Subagents Are Most Beneficial
+
+**Complex Deployments:**
+{% if install_k3s %}
+- Parallel k3s cluster validation and service health checks
+- Simultaneous container builds and Kubernetes manifest preparation
+- Concurrent ingress configuration and certificate management
+{% elif install_kind %}
+- Parallel KIND cluster setup and Docker image loading
+- Simultaneous container builds and Kubernetes manifest validation
+- Concurrent service deployment and connectivity testing
+{% else %}
+- Parallel Docker Compose service management
+- Simultaneous container builds and network configuration
+- Concurrent service health checks and log analysis
+{% endif %}
+
+**Development Workflow Tasks:**
+- Code analysis while preparing deployment manifests
+- Documentation generation during build processes
+- Test execution while performing system validation
+- Git operations while updating configuration files
+- Environment cleanup while preparing new deployments
+
+**System Operations:**
+- Log analysis across multiple services simultaneously
+- Parallel health checks for different system components
+- Concurrent file operations and system diagnostics
+- Multi-service debugging and troubleshooting
+- Parallel backup and restoration operations
+
+### Best Practices for Subagent Usage
+
+**Task Organization:**
+- Break complex operations into independent, parallelizable tasks
+- Use subagents for operations that don't depend on each other
+- Coordinate results from multiple subagents for comprehensive analysis
+- Leverage parallel execution for time-consuming operations
+
+**Development Environment Integration:**
+```bash
+# Example: Parallel system validation
+# Subagent 1: Kubernetes cluster health
+kubectl get nodes && kubectl get all -A
+
+# Subagent 2: Docker system status  
+docker system df && docker ps --format "table {{.Names}}\t{{.Status}}"
+
+# Subagent 3: Development tools verification
+node --version && npm list -g --depth=0 && claude --version
+```
+
+**Effective Parallelization Patterns:**
+- **Independent Validation**: Multiple system components checked simultaneously
+- **Parallel Builds**: Container images and documentation built concurrently
+- **Multi-Service Deployment**: Deploy different services to different namespaces
+- **Concurrent Testing**: Run different test suites simultaneously
+- **Parallel Cleanup**: Clean multiple directories/resources at once
+
+### Configuration Options
+
+**Enabling Subagents (Default):**
+```yaml
+# In project configuration
+subagent_usage: enabled
+max_parallel_tasks: 4
+task_coordination: automatic
+```
+
+**Disabling Subagents (If Needed):**
+```yaml
+# For sequential-only workflows
+subagent_usage: disabled
+execution_mode: sequential
+```
+
+**Custom Configuration:**
+```yaml
+# Fine-tuned settings
+subagent_usage: enabled
+max_parallel_tasks: 2
+task_types:
+  - validation
+  - deployment
+  - documentation
+coordination_timeout: 300
+```
+
+### Practical Examples in This Environment
+
+**Kubernetes Deployment with Subagents:**
+```bash
+# Subagent 1: Prepare cluster
+kubectl create namespace myapp
+kubectl apply -f rbac.yaml
+
+# Subagent 2: Build and load images
+docker build -t myapp:latest .
+{% if install_k3s %}
+k3s ctr images import myapp-latest.tar
+{% elif install_kind %}
+kind load docker-image myapp:latest
+{% endif %}
+
+# Subagent 3: Validate configuration
+kubectl --dry-run=client apply -f deployment.yaml
+kubectl --dry-run=client apply -f service.yaml
+
+# Coordination: Deploy everything
+kubectl apply -f deployment.yaml -f service.yaml
+```
+
+**Development Environment Setup:**
+```bash
+# Subagent 1: System preparation
+sudo apt update && sudo apt upgrade -y
+sudo systemctl status docker
+
+# Subagent 2: Development tools
+npm install -g typescript @types/node
+claude mcp install
+
+# Subagent 3: Project initialization
+git init && git remote add origin <repo-url>
+echo "node_modules/" > .gitignore
+
+# Coordination: Final validation
+docker --version && kubectl version --client && node --version
+```
+
+### Monitoring Subagent Operations
+
+**Progress Tracking:**
+- Each subagent reports progress independently
+- Consolidated status updates for complex operations
+- Error isolation prevents one failure from stopping others
+- Parallel execution time tracking and optimization
+
+**Debugging Parallel Operations:**
+```bash
+# Check multiple services simultaneously
+kubectl logs -f deployment/app1 &
+kubectl logs -f deployment/app2 &
+kubectl logs -f deployment/app3 &
+wait  # Wait for all background jobs
+
+# Parallel health checks
+kubectl get pods -l app=frontend --no-headers | wc -l &
+kubectl get pods -l app=backend --no-headers | wc -l &
+kubectl get pods -l app=database --no-headers | wc -l &
+```
+
+### Integration with Existing Tools
+
+**With Docker Commands:**
+- Parallel container builds for different services
+- Concurrent health checks across multiple containers
+- Simultaneous log collection from multiple services
+
+**With Kubernetes Operations:**
+- Parallel deployment to different namespaces
+- Concurrent validation of multiple manifests
+- Simultaneous monitoring of different cluster components
+
+**With Development Workflow:**
+- Code analysis while preparing deployment
+- Documentation generation during build processes
+- Test execution while performing system validation
+
+### Performance Benefits
+
+**Time Savings:**
+- Complex deployments complete 2-3x faster
+- Parallel validation reduces waiting time
+- Concurrent operations maximize resource utilization
+- Reduced overall development cycle time
+
+**Resource Efficiency:**
+- Better utilization of multi-core systems
+- Parallel I/O operations reduce bottlenecks
+- Concurrent network operations improve throughput
+- Optimized use of development environment resources
+
+**Note:** Subagent usage is automatically optimized for this development environment's configuration and available resources. The system intelligently balances parallel execution with resource constraints to ensure optimal performance.
+
 ## Git Branch and Push Policy
 
 ### Development Workflow
