@@ -1,6 +1,11 @@
 ---
 # Default variables for MCP role
 
+# Directory settings - use hidden deployment directory (fallback defaults)
+deployment_base_dir: "{{ custom_deployment_dir | default('/home/' + target_user + '/.claude-code-vm') }}"
+tools_dir: "{{ deployment_base_dir }}/tools"
+temp_dir: "{{ deployment_base_dir }}/tmp"
+
 # MCP configuration
 mcp_config_dir: "{{ target_user_home }}/.claude"
 mcp_config_file: "{{ mcp_config_dir }}/mcp-servers.json"
