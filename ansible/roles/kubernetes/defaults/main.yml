@@ -37,6 +37,9 @@ k3s_ingress_controller: "nginx"   # Options: "nginx" (default), "traefik", "none
 nginx_ingress_version: ""         # NGINX Ingress Controller version (empty for latest)
 nginx_ingress_manifest_url: "https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml"  # Latest when version is empty
 
+# User configuration (optional but preselected)
+create_user_claude_config: true   # Create CLAUDE.md configuration file for user (preselected)
+
 # kompose configuration
 install_kompose: true
 kompose_version: "v1.36.0"

@@ -1,0 +1,247 @@
+# CLAUDE.md - Development Environment Configuration
+
+This file provides guidance for Claude Code when working in this development environment.
+
+## Kubernetes Configuration
+
+### Deployed Kubernetes Runtime
+- **Runtime**: {{ 'k3s' if install_k3s else 'KIND' if install_kind else 'None' }} ({{ 'lightweight Kubernetes distribution' if install_k3s else 'Kubernetes IN Docker' if install_kind else 'No Kubernetes runtime installed' }})
+- **K3s Installed**: {{ 'Yes' if install_k3s else 'No' }}
+- **KIND Installed**: {{ 'Yes' if install_kind else 'No' }}
+- **Ingress Controller**: {{ 'NGINX Ingress Controller' if install_nginx_ingress else 'Traefik' if k3s_ingress_controller == 'traefik' else 'None' }}
+
+### Kubernetes Access
+- **Kubeconfig Location**: `{{ k3s_user_kubeconfig_path if install_k3s else '~/.kube/config' }}`
+{% if install_k3s %}
+- **kubectl Command**: `k3s kubectl` (aliased as `kubectl` and `k`)
+- **Direct k3s Access**: Use `k3s kubectl` for direct access
+- **Cluster Type**: Single-node k3s cluster
+{% elif install_kind %}
+- **kubectl Command**: Standard `kubectl` and `k` alias
+- **KIND Access**: Use `kind` commands for cluster management
+- **Cluster Type**: KIND cluster
+{% endif %}
+
+### Useful Kubernetes Aliases
+```bash
+{% if install_k3s %}
+alias k='k3s kubectl'           # Short kubectl via k3s
+alias kubectl='k3s kubectl'    # Standard kubectl via k3s  
+alias kgp='k3s kubectl get pods'
+alias kgs='k3s kubectl get services'
+alias kgd='k3s kubectl get deployments'
+{% else %}
+alias k=kubectl                # Short kubectl command
+alias kgp='kubectl get pods'   # Get pods
+alias kgs='kubectl get services' # Get services
+alias kgd='kubectl get deployments' # Get deployments
+{% endif %}
+```
+
+## Git Branch and Push Policy
+
+### Development Workflow
+- **Always create dedicated branches** for improvements and fixes
+- **Never commit directly to main/master** without explicit authorization
+- **Test thoroughly** before committing
+- **Verify changes work** with end-to-end testing
+- **Create proper commit messages** describing the change
+
+### Branch Naming
+- `feature/description` - for new features
+- `fix/description` - for bug fixes
+- `update/description` - for updates and improvements
+
+### Commit Guidelines
+- **Never mention Claude** in commit messages or as contributor
+- **Ensure no sensitive information** is exposed in commits
+- **Exclude Claude-related files** (CLAUDE.md, .claude directories) from commits
+- **Use clear, descriptive commit messages** focusing on the "why"
+
+### Push Policy
+1. Create branch: `git checkout -b feature/my-feature`
+2. Make changes and test thoroughly
+3. Commit with clear message
+4. Push branch: `git push -u origin feature/my-feature`
+5. Create pull request for review
+6. **Only merge to main after explicit authorization**
+
+## Development Environment
+
+### Container Runtimes
+- **Docker**: {{ 'Available' if install_docker_with_k3s or not install_k3s else 'Not installed' }} for development, Docker Compose, image building
+{% if install_k3s %}
+- **k3s/containerd**: Used by Kubernetes for container orchestration  
+- **Coexistence**: Docker for dev workflows, k3s for Kubernetes workloads
+{% elif install_kind %}
+- **KIND/Docker**: Uses Docker for Kubernetes containers
+{% endif %}
+
+### Useful Docker Aliases
+```bash
+{% if install_docker_with_k3s or not install_k3s %}
+alias d=docker                 # Short docker command
+alias dc='docker compose'      # Docker Compose
+alias dps='docker ps'          # List running containers
+alias di='docker images'       # List images
+{% else %}
+# Docker not installed in this configuration
+{% endif %}
+```
+
+## Command Execution Environment
+
+### Remote Command Execution
+This development environment supports automatic execution of common commands:
+
+**Kubernetes Commands:**
+- All `kubectl` and `k` commands are automatically available
+- Direct k3s access via `k3s kubectl` commands
+- Cluster inspection: `kubectl get nodes`, `kubectl get all -A`
+
+**Docker Commands:**
+- Standard Docker commands: `docker ps`, `docker images`, `docker logs`
+- Docker Compose operations: `docker compose up`, `docker compose down`
+- Container management: `docker exec`, `docker logs`
+
+**Shell Commands:**
+- File operations: `ls`, `find`, `grep`, `cat`, `tail`, `head`
+- System information: `ps`, `top`, `df`, `free`, `uname`
+- Network utilities: `curl`, `wget`, `netstat`, `ss`
+- Git operations: `git status`, `git log`, `git branch`
+- Process management: `systemctl status`, `journalctl`
+
+**Development Tools:**
+- Node.js: `node --version`, `npm list`, `npm install`
+- Claude Code: `claude --version`, `claude mcp list`
+- Screen sessions: `screen -list`, `screen -r`
+
+### Command Aliases Available
+```bash
+# Kubernetes shortcuts
+k, kubectl, kgp, kgs, kgd
+
+# Docker shortcuts  
+d, dc, dps, di
+
+# All standard bash aliases and functions
+```
+
+## Important Notes
+
+- **Docker group membership**: Requires logout/login after installation
+- **Screen sessions**: Automatic screen attachment configured for persistent sessions
+- **Global npm packages**: Installed to user directory, PATH configured
+- **Claude Code CLI**: Available globally after installation
+- **MCP Servers**: Configured and available for Claude Code extensions
+- **Command execution**: All commands run in the context of this development VM
+
+## Quick Start Commands
+
+```bash
+# Check Kubernetes cluster
+kubectl get nodes
+kubectl get all -A
+
+# Check Docker
+docker --version
+docker ps
+
+# Check Claude Code
+claude --version
+
+# Access development tools
+screen -list              # List screen sessions
+npm list -g              # Global npm packages
+```
+
+## Build and Deployment Processes
+
+### From VM to Local Development Environment
+
+**Container Image Builds:**
+{% if install_k3s %}
+```bash
+# Build and deploy to k3s cluster
+docker build -t myapp:latest .
+k3s ctr images import myapp-latest.tar    # Import to k3s
+kubectl apply -f k8s-manifests/           # Deploy to cluster
+```
+{% elif install_kind %}
+```bash
+# Build and load into KIND cluster
+docker build -t myapp:latest .
+kind load docker-image myapp:latest       # Load into KIND
+kubectl apply -f k8s-manifests/           # Deploy to cluster
+```
+{% else %}
+```bash
+# Build for Docker Compose deployment
+docker build -t myapp:latest .
+docker compose up -d                      # Deploy with Compose
+```
+{% endif %}
+
+**Development Workflow:**
+1. **Code Development**: Edit code in the VM environment
+2. **Local Testing**: 
+{% if install_k3s or install_kind %}
+   - Test with `kubectl port-forward` for service access
+   - Use `kubectl logs` for debugging
+   - Access via NGINX Ingress (if configured) or NodePort services
+{% else %}
+   - Test with `docker compose up` 
+   - Access services via exposed ports
+   - Use `docker compose logs` for debugging
+{% endif %}
+3. **Build Pipeline**: 
+   - Build images locally: `docker build`
+{% if install_k3s %}
+   - Import to k3s: `k3s ctr images import`
+{% elif install_kind %}
+   - Load to KIND: `kind load docker-image`
+{% endif %}
+   - Deploy: `kubectl apply` or `docker compose up`
+
+**Port Forwarding for Development:**
+{% if install_k3s or install_kind %}
+```bash
+# Forward service ports for local access
+kubectl port-forward service/myapp 8080:80
+kubectl port-forward pod/myapp-pod 8080:8080
+
+# Access services via Ingress (if configured)
+curl http://localhost/myapp
+```
+{% else %}
+```bash
+# Access Docker Compose services
+docker compose port web 80        # Check exposed ports
+curl http://localhost:8080/myapp   # Access via mapped ports
+```
+{% endif %}
+
+**Image Registry Workflow:**
+```bash
+# Tag for registry
+docker tag myapp:latest registry.company.com/myapp:latest
+
+# Push to registry
+docker push registry.company.com/myapp:latest
+
+# Deploy from registry
+{% if install_k3s or install_kind %}
+kubectl set image deployment/myapp myapp=registry.company.com/myapp:latest
+{% else %}
+# Update docker-compose.yml with new image
+docker compose pull && docker compose up -d
+{% endif %}
+```
+
+**Local Development Tips:**
+- Use `screen` sessions for persistent development sessions
+- Leverage `kubectl logs -f` or `docker compose logs -f` for real-time debugging
+- Use port-forwarding to access services from your local machine
+- Build and test locally before pushing to remote registries
+
+This environment is optimized for modern development with Kubernetes, Docker, and AI-assisted coding workflows. Commands can be executed automatically when requested.

@@ -269,6 +269,57 @@
 
   when: install_k3s and install_nginx_ingress
 
+# User CLAUDE.md configuration
+- name: Create user CLAUDE.md configuration
+  block:
+    - name: Check if user already has CLAUDE.md
+      stat:
+        path: "{{ target_user_home }}/.claude/CLAUDE.md"
+      register: user_claude_config
+      tags:
+        - kubernetes
+        - user-config
+
+    - name: Create .claude directory for user
+      file:
+        path: "{{ target_user_home }}/.claude"
+        state: directory
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: '0755'
+      when: not user_claude_config.stat.exists
+      tags:
+        - kubernetes
+        - user-config
+
+    - name: Generate CLAUDE.md from template for user
+      template:
+        src: "../../config/CLAUDE.md.default"
+        dest: "{{ target_user_home }}/.claude/CLAUDE.md"
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: '0644'
+      when: not user_claude_config.stat.exists
+      tags:
+        - kubernetes
+        - user-config
+
+    - name: Display CLAUDE.md configuration notice
+      debug:
+        msg:
+          - "=== User CLAUDE.md Configuration ==="
+          - "{% if user_claude_config.stat.exists %}User already has ~/.claude/CLAUDE.md - skipped creation{% else %}Created ~/.claude/CLAUDE.md with development environment guidance{% endif %}"
+          - "This file provides Claude Code with context about:"
+          - "- Kubernetes runtime (k3s with NGINX Ingress)"
+          - "- Kubeconfig location (~/.kube/config)"
+          - "- Git branch and push policy"
+          - "- Development environment setup"
+      tags:
+        - kubernetes
+        - user-config
+
+  when: install_k3s and create_user_claude_config
+
 # Bash completions setup
 - name: Configure bash completions for Kubernetes tools
   block:
