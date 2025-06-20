@@ -136,7 +136,8 @@
         owner: "{{ target_user }}"
         group: "{{ target_user }}"
         mode: '0600'
-        remote_src: true
+      delegate_to: localhost
+      become: false
 
     - name: Copy environment variables to claude-code-mcp-management if available
       copy:

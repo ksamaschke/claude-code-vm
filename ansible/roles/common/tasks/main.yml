@@ -1,6 +1,68 @@
 ---
 # Common role tasks - System preparation and essential packages
 
+- name: Get target user information
+  getent:
+    database: passwd
+    key: "{{ target_user }}"
+  register: common_user_info
+  tags:
+    - system
+    - user-setup
+
+- name: Set target user home directory
+  set_fact:
+    target_user_home: "{{ common_user_info.ansible_facts.getent_passwd[target_user][4] }}"
+  tags:
+    - system
+    - user-setup
+
+- name: Ensure /tmp directory has correct permissions for apt operations
+  file:
+    path: /tmp
+    state: directory
+    mode: '1777'
+    owner: root
+    group: root
+  tags:
+    - system
+    - prerequisites
+
+- name: Install locales package
+  apt:
+    name: locales
+    state: present
+  become: true
+  tags:
+    - system
+    - locale
+
+- name: Generate locales
+  locale_gen:
+    name: "{{ item }}"
+    state: present
+  become: true
+  loop:
+    - en_US.UTF-8
+    - C.UTF-8
+  tags:
+    - system
+    - locale
+
+- name: Set system locale to C.UTF-8
+  copy:
+    content: |
+      LANG=C.UTF-8
+      LC_ALL=C.UTF-8
+    dest: /etc/default/locale
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  tags:
+    - system
+    - locale
+
 - name: Update apt cache
   apt:
     update_cache: true

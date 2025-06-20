@@ -10,7 +10,7 @@ generate_ssh_keys: false
 gcm_version: "2.6.0"  # Update as needed
 gcm_download_url: "https://github.com/git-ecosystem/git-credential-manager/releases/download/v{{ gcm_version }}/gcm-linux_amd64.{{ gcm_version }}.deb"
 gcm_package_name: "gcm-linux_amd64.{{ gcm_version }}.deb"
-gcm_temp_dir: "{{ temp_dir }}"
+gcm_temp_dir: "/tmp"
 
 # SSH key configuration
 ssh_key_type: "ed25519"

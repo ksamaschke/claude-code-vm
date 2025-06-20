@@ -34,3 +34,10 @@ timezone: "UTC"
 # Cleanup settings
 remove_unused_packages: true
 autoremove_packages: true
+
+# Directory settings
+scripts_dir: "{{ target_user_home }}/scripts"
+
+# Screen session configuration  
+screen_session_name: "KS"
+screen_logs_dir: "{{ target_user_home }}/logs/screen"

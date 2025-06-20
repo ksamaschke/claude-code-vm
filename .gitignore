@@ -160,7 +160,10 @@ tramp
 
 # General temporary files
 tmp/
+.tmp/
 temp/
+# Claude Code VM temporary inventories
+.tmp/claude-code-vm/
 *.tmp
 *.temp
 *.cache
@@ -288,6 +291,7 @@ release/
 # External repositories (should remain separate Git repos)
 scripts/claude-code-mcp-management/
 **/claude-code-mcp-management/
+tools/claude-code-mcp-management/
 
 # Downloaded tools and binaries
 downloads/

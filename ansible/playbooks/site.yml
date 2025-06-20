@@ -10,7 +10,7 @@
 
   vars:
     deployment_timestamp: "{{ ansible_date_time.iso8601 }}"
-    deployment_user: "{{ ansible_user_id }}"
+    deployment_user: "{{ ansible_user }}"
 
   pre_tasks:
     - name: Display deployment information
@@ -77,12 +77,8 @@
         - k8s
         - bash-completion
 
-    - role: mcp
-      tags:
-        - mcp
-        - model-context-protocol
-        - claude-extensions
-        - ai-tools
+# MCP deployment is handled by external claude-code-mcp-management tool
+# Use: make deploy-mcp to deploy MCP servers separately
 
   post_tasks:
     - name: Final system information
