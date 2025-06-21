@@ -86,11 +86,11 @@
     - system
     - packages
 
-- name: Wait for automatic package manager to finish
+- name: Wait for automatic package manager to finish (brief check)
   wait_for:
     path: /var/lib/dpkg/lock-frontend
     state: absent
-    timeout: 60
+    timeout: 10
   when: package_manager_check.stdout == "active"
   ignore_errors: true
   tags:
