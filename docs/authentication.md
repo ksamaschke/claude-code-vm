@@ -1,155 +1,154 @@
-# Authentication Examples
+# Authentication Guide
 
-This document shows different authentication scenarios and how to handle them with the deployment system.
+This document covers the authentication methods and variables supported by the Claude Code VM deployment system as implemented in the Makefile.
 
-## Default Authentication (Root + SSH Key)
+## Authentication Variables
 
-**Scenario**: Connect as root using SSH key, then sudo to target user
+### Required Variables
+- `VM_HOST` - Target VM IP address or hostname
+- `TARGET_USER` - Username on target VM for deployment
+
+### Connection Variables
+- `VM_USER` - SSH connection user (default: `root`)
+- `CONNECT_AS_TARGET` - Connect directly as target user (default: `false`)
+
+### SSH Authentication Variables
+- `TARGET_SSH_KEY` - Path to SSH private key (optional)
+- `USE_SSH_PASSWORD` - Use password authentication (default: `false`)
+- `SSH_PASSWORD` - SSH password (required when USE_SSH_PASSWORD=true)
+
+### Privilege Escalation Variables
+- `USE_BECOME_PASSWORD` - Require sudo password (default: `false`)
+- `BECOME_PASSWORD` - Sudo password (required when USE_BECOME_PASSWORD=true)
+
+## Authentication Methods
+
+### Default: Root SSH Key Authentication
+
+Connect as root using SSH key, then configure target user.
+
 ```bash
 make deploy VM_HOST=192.168.1.100 TARGET_USER=developer
 ```
 
-**How it works**:
-- Connects as `root` using `~/.ssh/id_rsa`
-- Uses `sudo` to execute tasks as `developer`
-- No passwords required (assumes passwordless sudo)
+This uses:
+- `VM_USER=root` (default)
+- SSH key authentication (system default key)
+- Passwordless sudo
 
-## Direct Target User Connection (More Secure)
+### Direct Target User Connection
 
-**Scenario**: Connect directly as target user (no root access needed)
+Connect directly as the target user.
+
 ```bash
 make deploy VM_HOST=192.168.1.100 TARGET_USER=developer CONNECT_AS_TARGET=true
 ```
 
-**How it works**:
-- Connects directly as `developer` using SSH key
-- No privilege escalation needed
-- More secure (no root access required)
+This connects directly as `developer` without privilege escalation.
 
-## Target User with Custom SSH Key
+### Custom SSH Key
 
-**Scenario**: Target user has their own SSH key
+Use a specific SSH key for authentication.
+
 ```bash
-make deploy VM_HOST=192.168.1.100 TARGET_USER=developer \
-    CONNECT_AS_TARGET=true TARGET_SSH_KEY=~/.ssh/developer_key
+make deploy VM_HOST=192.168.1.100 TARGET_USER=developer TARGET_SSH_KEY=~/.ssh/custom_key
 ```
 
-**How it works**:
-- Connects as `developer` using `~/.ssh/developer_key`
-- Uses the specific key for that user
+### SSH Password Authentication
 
-## Password Authentication (No SSH Keys)
+Use password instead of SSH key.
 
-**Scenario**: SSH keys not available, must use passwords
 ```bash
-make deploy VM_HOST=192.168.1.100 TARGET_USER=developer \
-    USE_SSH_PASSWORD=true SSH_PASSWORD=mypassword123
+make deploy VM_HOST=192.168.1.100 TARGET_USER=developer USE_SSH_PASSWORD=true SSH_PASSWORD=mypassword
 ```
 
-**How it works**:
-- Connects using password instead of SSH key
-- Still uses sudo to switch to target user
+### Sudo with Password
 
-## Password Authentication + Direct Connection
+Require password for sudo operations.
 
-**Scenario**: Connect directly as target user using password
 ```bash
-make deploy VM_HOST=192.168.1.100 TARGET_USER=developer \
-    CONNECT_AS_TARGET=true USE_SSH_PASSWORD=true SSH_PASSWORD=devpassword
+make deploy VM_HOST=192.168.1.100 TARGET_USER=developer USE_BECOME_PASSWORD=true BECOME_PASSWORD=sudopass
 ```
 
-**How it works**:
-- Connects directly as `developer` using password
-- No privilege escalation needed
+### Combined Authentication Methods
 
-## Sudo with Password Required
+Use both SSH password and sudo password.
 
-**Scenario**: Sudo requires password (security-hardened system)
 ```bash
 make deploy VM_HOST=192.168.1.100 TARGET_USER=developer \
-    USE_BECOME_PASSWORD=true BECOME_PASSWORD=sudopassword123
+    USE_SSH_PASSWORD=true SSH_PASSWORD=sshpass \
+    USE_BECOME_PASSWORD=true BECOME_PASSWORD=sudopass
 ```
 
-**How it works**:
-- Connects as root with SSH key
-- Uses password for sudo operations
+Connect as non-root user with custom key and sudo password.
 
-## Complex Authentication
-
-**Scenario**: Non-root user with custom key and sudo password
 ```bash
 make deploy VM_HOST=192.168.1.100 VM_USER=admin TARGET_USER=developer \
     TARGET_SSH_KEY=~/.ssh/admin_key \
-    USE_BECOME_PASSWORD=true BECOME_PASSWORD=adminpassword
+    USE_BECOME_PASSWORD=true BECOME_PASSWORD=adminpass
 ```
 
-**How it works**:
-- Connects as `admin` using `~/.ssh/admin_key`
-- Uses password for sudo to become `developer`
+## Security Considerations
 
-## Environment Variables (Secure)
+### Environment Variables
 
-**Scenario**: Keep passwords out of command line history
+Keep passwords out of command history by using environment variables:
+
 ```bash
-export SSH_PASSWORD="mypassword123"
+export SSH_PASSWORD="mypassword"
 export BECOME_PASSWORD="sudopassword"
 
 make deploy VM_HOST=192.168.1.100 TARGET_USER=developer \
     USE_SSH_PASSWORD=true USE_BECOME_PASSWORD=true
 ```
 
-## Group Inventory with Different Auth Methods
+### SSH Key Permissions
 
-**inventory.yml example**:
-```yaml
-all:
-  children:
-    production:
-      hosts:
-        secure-server:
-          ansible_host: 10.0.1.10
-          ansible_user: admin
-          ansible_ssh_private_key_file: ~/.ssh/prod_admin_key
-          ansible_become_password: "{{ vault_sudo_password }}"
-          target_user: webapp
-        dev-server:
-          ansible_host: 10.0.1.20
-          ansible_user: developer
-          ansible_ssh_private_key_file: ~/.ssh/dev_key
-          target_user: developer
-          ansible_become: false  # No privilege escalation needed
+Ensure SSH private keys have correct permissions:
+
+```bash
+chmod 600 ~/.ssh/your_private_key
 ```
 
-## Security Best Practices
+## Troubleshooting
 
-1. **Use SSH Keys**: Always prefer SSH keys over passwords
-2. **Direct Connection**: Use `CONNECT_AS_TARGET=true` when possible
-3. **Vault Passwords**: Use Ansible Vault for passwords in inventory
-4. **Environment Variables**: Keep sensitive data out of command history
-5. **Limited Access**: Only grant minimum required privileges
+### Test SSH Connection
 
-## Troubleshooting Authentication
+Test manual SSH connection:
 
-**SSH Key Issues**:
 ```bash
-# Test SSH connection manually
 ssh -i ~/.ssh/your_key user@host
-
-# Check SSH agent
-ssh-add -l
 ```
 
-**Permission Issues**:
+### Test Connectivity
+
+Use the built-in connectivity test:
+
 ```bash
-# Check if user can sudo
-sudo -l
-
-# Test become without password
-sudo -n whoami
+make test-connection VM_HOST=192.168.1.100 TARGET_USER=developer
 ```
 
-**Ansible Verbosity**:
+### Check Sudo Access
+
+Test sudo access manually:
+
 ```bash
-# Debug authentication issues
-make deploy VM_HOST=... TARGET_USER=... -vvv
+ssh user@host sudo whoami
 ```
+
+### Debug with Verbose Output
+
+Enable verbose Ansible output:
+
+```bash
+make deploy VM_HOST=192.168.1.100 TARGET_USER=developer -vvv
+```
+
+## Authentication Flow
+
+1. **SSH Connection**: Connect to `VM_HOST` as `VM_USER` (or `TARGET_USER` if CONNECT_AS_TARGET=true)
+2. **Authentication**: Use SSH key (default) or password (if USE_SSH_PASSWORD=true)
+3. **Privilege Escalation**: Use sudo to execute tasks as `TARGET_USER` (unless CONNECT_AS_TARGET=true)
+4. **Sudo Authentication**: Passwordless (default) or with password (if USE_BECOME_PASSWORD=true)
+
+This covers all authentication methods and variables actually implemented in the deployment system.
