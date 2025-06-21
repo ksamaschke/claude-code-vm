@@ -133,7 +133,7 @@ This development environment **enables subagent usage by default** for enhanced 
 kubectl get nodes && kubectl get all -A
 
 # Subagent 2: Docker system status  
-docker system df && docker ps --format "table {{.Names}}\t{{.Status}}"
+docker system df && docker ps --format "table {{ '{{' }}.Names{{ '}}' }}\t{{ '{{' }}.Status{{ '}}' }}"
 
 # Subagent 3: Development tools verification
 node --version && npm list -g --depth=0 && claude --version
