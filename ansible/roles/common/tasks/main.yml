@@ -73,37 +73,35 @@
     - system
     - packages
 
-- name: Check for active package manager processes
+- name: Smart wait for package manager locks to clear
   shell: |
-    if pgrep -f "apt|dpkg|unattended-upgrade" > /dev/null; then
-      echo "active"
-    else
-      echo "clear"
-    fi
-  register: package_manager_check
+    max_wait={{ package_manager_max_wait_seconds }}
+    check_interval={{ package_manager_check_interval }}
+    max_attempts=$((max_wait / check_interval))
+    attempt=0
+    
+    while [ $attempt -lt $max_attempts ]; do
+      if ! pgrep -f "apt|dpkg|unattended-upgrade" > /dev/null && \
+         ! test -f /var/lib/dpkg/lock-frontend && \
+         ! test -f /var/lib/apt/lists/lock; then
+        echo "Package manager is clear"
+        exit 0
+      fi
+      echo "Package manager busy, waiting... (attempt $((attempt + 1))/$max_attempts)"
+      sleep $check_interval
+      attempt=$((attempt + 1))
+    done
+    echo "Package manager still busy after ${max_wait} seconds, proceeding anyway"
+  register: package_manager_wait
   changed_when: false
   tags:
     - system
     - packages
 
-- name: Wait for automatic package manager to finish (brief check)
-  wait_for:
-    path: /var/lib/dpkg/lock-frontend
-    state: absent
-    timeout: 10
-  when: package_manager_check.stdout == "active"
-  ignore_errors: true
-  tags:
-    - system
-    - packages
-
-- name: Display package manager wait notice
+- name: Display package manager status
   debug:
-    msg:
-      - "⚠️ Package manager is active (apt/dpkg/unattended-upgrade)"
-      - "Waiting up to 5 minutes for automatic updates to complete..."
-      - "This is normal on fresh VMs with automatic updates enabled"
-  when: package_manager_check.stdout == "active"
+    msg: "{{ package_manager_wait.stdout_lines }}"
+  when: package_manager_wait.stdout_lines is defined
   tags:
     - system
     - packages
