@@ -298,8 +298,8 @@
         - kubernetes
         - user-config
 
-    - name: Generate CLAUDE.md from template for user
-      template:
+    - name: Copy CLAUDE.md template for user (literal content, not processed)
+      copy:
         src: "../../config/CLAUDE.md.default"
         dest: "{{ target_user_home }}/.claude/CLAUDE.md"
         owner: "{{ target_user }}"

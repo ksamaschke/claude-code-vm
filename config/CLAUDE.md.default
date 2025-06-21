@@ -533,4 +533,4 @@ docker compose pull && docker compose up -d
 - Use port-forwarding to access services from your local machine
 - Build and test locally before pushing to remote registries
 
-This environment is optimized for modern development with Kubernetes, Docker, and AI-assisted coding workflows. Commands can be executed automatically when requested
+This environment is optimized for modern development with Kubernetes, Docker, and AI-assisted coding workflows. Commands can be executed automatically when requested.
