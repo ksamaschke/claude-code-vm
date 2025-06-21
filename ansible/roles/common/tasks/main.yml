@@ -68,7 +68,7 @@
     update_cache: true
     cache_valid_time: "{{ cache_valid_time }}"
   retries: 3
-  delay: 5
+  delay: "{{ package_manager_check_interval | default(5) }}"
   tags:
     - system
     - packages
@@ -112,7 +112,7 @@
     update_cache: false
   when: upgrade_packages is defined and upgrade_packages != false
   retries: 3
-  delay: 30
+  delay: "{{ package_manager_retry_delay | default(30) }}"
   register: upgrade_result
   failed_when: false
   tags:
@@ -151,7 +151,7 @@
     state: present
     update_cache: false
   retries: 3
-  delay: 10
+  delay: "{{ package_upgrade_delay | default(10) }}"
   tags:
     - system
     - packages

@@ -55,9 +55,12 @@
     - mcp
     - env-file
 
-- name: Ensure Ansible is installed for claude-code-mcp-management
+- name: Install MCP server dependencies
   apt:
-    name: ansible
+    name:
+      - ansible
+      - python3-pip
+      - pipx
     state: present
   become: true
   tags:
@@ -82,7 +85,7 @@
     - name: Copy local claude-code-mcp-management to target
       copy:
         src: "{{ playbook_dir }}/../scripts/claude-code-mcp-management/"
-        dest: "{{ target_user_home }}/claude-code-mcp-management/"
+        dest: "{{ mcp_management_dir }}/"
         owner: "{{ target_user }}"
         group: "{{ target_user }}"
         mode: preserve
@@ -155,28 +158,24 @@
     - name: Copy local mcp-servers.json to claude-code-mcp-management
       copy:
         src: "{{ mcp_servers_file }}"
-        dest: "{{ target_user_home }}/claude-code-mcp-management/mcp-servers.json"
+        dest: "{{ mcp_management_dir }}/mcp-servers.json"
         owner: "{{ target_user }}"
         group: "{{ target_user }}"
         mode: '0600'
-      delegate_to: localhost
-      become: false
 
     - name: Copy environment variables to claude-code-mcp-management if available
       copy:
         src: "{{ env_file_path }}"
-        dest: "{{ target_user_home }}/claude-code-mcp-management/.env"
+        dest: "{{ mcp_management_dir }}/.env"
         owner: "{{ target_user }}"
         group: "{{ target_user }}"
         mode: '0600'
-      delegate_to: localhost
-      become: false
       when: env_file_stat.stat.exists
 
 
     - name: Check dependencies in claude-code-mcp-management
       shell: |
-        cd {{ target_user_home }}/claude-code-mcp-management
+        cd {{ mcp_management_dir }}
         export PATH="{{ target_user_home }}/.npm-global/bin:$PATH"
         make check
       become_user: "{{ target_user }}"
@@ -185,12 +184,20 @@
       args:
         executable: /bin/bash
 
-    - name: Run MCP server synchronization using proper Makefile syntax
+    - name: Install uvx (Python package runner) for MCP servers
       shell: |
-        cd {{ target_user_home }}/claude-code-mcp-management
-        export PATH="{{ target_user_home }}/.npm-global/bin:$PATH"
-        # Use the Makefile with proper CONFIG_FILE and ENV_FILE parameters
-        make sync CONFIG_FILE=./mcp-servers.json ENV_FILE=./.env SCOPE=user
+        export PATH="$HOME/.local/bin:$PATH"
+        pipx install uv
+      become_user: "{{ target_user }}"
+      args:
+        creates: "{{ target_user_home }}/.local/bin/uvx"
+
+    - name: Run MCP server synchronization on target VM
+      shell: |
+        cd {{ mcp_management_dir }}
+        export PATH="{{ target_user_home }}/.npm-global/bin:{{ target_user_home }}/.local/bin:$PATH"
+        ls -la mcp-servers.json .env || echo "Files not found"
+        make sync CONFIG_FILE=mcp-servers.json ENV_FILE=.env SCOPE=user
       become_user: "{{ target_user }}"
       register: mcp_sync_result
       args:
@@ -230,7 +237,7 @@
   debug:
     msg:
       - "=== MCP Server Configuration Complete ==="
-      - "Deployment location: {{ target_user_home }}/claude-code-mcp-management"
+      - "Deployment location: {{ mcp_management_dir }}"
       - "Environment variables loaded: {{ env_vars.keys() | list | length if env_vars is defined else 0 }}"
       - "Configuration file: ./mcp-servers.json"
       - "Environment file: ./.env"

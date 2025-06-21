@@ -77,8 +77,8 @@
     update_cache: true
   register: docker_installation
   until: docker_installation is succeeded
-  retries: 3
-  delay: 10
+  retries: "{{ docker_install_retries | default(3) }}"
+  delay: "{{ docker_install_delay | default(10) }}"
   tags:
     - docker
     - packages

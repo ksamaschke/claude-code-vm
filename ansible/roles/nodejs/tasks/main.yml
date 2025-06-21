@@ -41,8 +41,8 @@
     update_cache: true
   register: nodejs_installation
   until: nodejs_installation is succeeded
-  retries: 3
-  delay: 10
+  retries: "{{ nodejs_install_retries | default(3) }}"
+  delay: "{{ nodejs_install_delay | default(10) }}"
   tags:
     - nodejs
     - packages
