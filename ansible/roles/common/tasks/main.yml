@@ -90,7 +90,7 @@
   wait_for:
     path: /var/lib/dpkg/lock-frontend
     state: absent
-    timeout: 300
+    timeout: 60
   when: package_manager_check.stdout == "active"
   ignore_errors: true
   tags:
