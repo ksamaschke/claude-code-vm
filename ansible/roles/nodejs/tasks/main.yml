@@ -12,12 +12,24 @@
     - nodejs
     - repository
 
-- name: Add NodeSource repository
-  apt_repository:
-    repo: "deb [signed-by={{ nodejs_gpg_key_path }}] {{ nodejs_repo_url }} {{ nodejs_repo_codename }} main"
-    filename: nodesource
+- name: Install python3-debian for repository management
+  apt:
+    name: python3-debian
     state: present
     update_cache: true
+  tags:
+    - nodejs
+    - prerequisites
+
+- name: Add NodeSource repository (modern Debian 12 method)
+  ansible.builtin.deb822_repository:
+    name: nodesource
+    types: [deb]
+    uris: ["{{ nodejs_repo_url }}"]
+    suites: ["{{ nodejs_repo_codename }}"]
+    components: [main]
+    signed_by: "{{ nodejs_gpg_key_path }}"
+    state: present
   tags:
     - nodejs
     - repository

@@ -39,12 +39,25 @@
   set_fact:
     docker_architecture: "{{ docker_arch.stdout | default(ansible_architecture | replace('x86_64', 'amd64')) }}"
 
-- name: Add Docker repository
-  apt_repository:
-    repo: "deb [arch={{ docker_architecture }} signed-by={{ docker_gpg_key_path }}] {{ docker_repo_url }} {{ ansible_distribution_release }} stable"
-    filename: docker
+- name: Install python3-debian for repository management
+  apt:
+    name: python3-debian
     state: present
     update_cache: true
+  tags:
+    - docker
+    - prerequisites
+
+- name: Add Docker repository (modern Debian 12 method)
+  ansible.builtin.deb822_repository:
+    name: docker
+    types: [deb]
+    uris: ["{{ docker_repo_url }}"]
+    suites: ["{{ ansible_distribution_release }}"]
+    components: [stable]
+    architectures: ["{{ docker_architecture }}"]
+    signed_by: "{{ docker_gpg_key_path }}"
+    state: present
   tags:
     - docker
     - repository
