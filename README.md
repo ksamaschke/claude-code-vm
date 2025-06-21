@@ -22,11 +22,12 @@ make deploy VM_HOST=192.168.1.100 TARGET_USER=developer
 ## ✨ What You Get
 
 - **🤖 Claude Code CLI** - Ready to use with MCP server integration and subagent support
+- **📝 Automated CLAUDE.md Generation** - Environment-specific guidance with subagent documentation
 - **🐳 Docker & Docker Compose** - Complete container development environment
 - **📦 Node.js 22 LTS** - Latest LTS with global package support and PATH configuration
-- **🔐 Git Multi-Provider Support** - GitHub, GitLab, Azure DevOps, Bitbucket, unlimited custom servers
-- **☸️ Kubernetes Stack** - k3s (lightweight) with NGINX Ingress Controller, kubectl, kompose
-- **🧠 MCP Servers** - AI extensions: search, memory, document processing, browser automation
+- **🔐 Git Multi-Provider Support** - GitHub, GitLab, Azure DevOps, Bitbucket, custom Git servers
+- **☸️ Kubernetes Options** - k3s (default) or KIND (optional) with kubectl, kompose, and optional NGINX Ingress
+- **🧠 MCP Servers** - Optional AI extensions (search, memory, document processing) with API key setup
 - **📺 Persistent Sessions** - Screen-based terminal sessions that survive disconnects
 
 ## 📋 Requirements
@@ -93,26 +94,26 @@ make deploy VM_HOST=192.168.1.100 TARGET_USER=dev ENV_FILE=production.env
 ## 🌟 Key Features
 
 ### AI-Enhanced Development
-- **Claude Code CLI** with MCP server ecosystem for enhanced AI capabilities
-- **Subagent support** for parallel task execution and complex workflows
-- **Automated CLAUDE.md generation** with environment-specific guidance
+- **Claude Code CLI** with MCP server integration
+- **CLAUDE.md generation** with environment-specific configuration and subagent documentation
+- **MCP servers** for search, memory, document processing (optional, requires API keys)
 
 ### Container & Orchestration
-- **k3s** as default lightweight Kubernetes runtime
-- **NGINX Ingress Controller** for production-ready ingress
-- **Docker** for development workflows and container building
-- **Seamless integration** between Docker and k3s
+- **k3s**: Lightweight Kubernetes (default, optional)
+- **KIND**: Kubernetes in Docker (optional alternative)
+- **NGINX Ingress**: Optional ingress controller (preselected, disables Traefik)
+- **Docker**: Standard Docker and Docker Compose installation
 
 ### Git Multi-Provider Support
-- **Unlimited Git servers** with URL-based credential management
-- **Automatic credential setup** for GitHub, GitLab, Azure DevOps, Bitbucket
-- **SSH key generation** and Git configuration
+- **Multiple Git servers** with environment variable-based credential management
+- **Supports**: GitHub, GitLab, Azure DevOps, Bitbucket, custom Git servers
+- **SSH key generation** and global Git configuration
 
-### Production-Ready Setup
-- **Package manager conflict handling** for reliable deployments
-- **Comprehensive validation** with clear status reporting
-- **Screen session management** for persistent development environments
-- **User configuration templates** with deployment-specific guidance
+### Deployment Features
+- **Package manager conflict detection** and graceful handling
+- **Deployment validation** with component status reporting
+- **Screen session management** for persistent terminal sessions
+- **Configurable authentication** (SSH keys, passwords)
 
 ## 🔍 Quick Troubleshooting
 
