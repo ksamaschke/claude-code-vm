@@ -153,7 +153,7 @@
         url: "{{ gcm_download_url }}"
         dest: "{{ gcm_temp_dir }}/{{ gcm_package_name }}"
         mode: '0644'
-        timeout: 30
+        timeout: "{{ download_timeout | default(120) }}"
       register: gcm_download
       until: gcm_download is succeeded
       retries: 3

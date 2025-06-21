@@ -53,9 +53,9 @@ BECOME_PASSWORD ?=
 # Deployment target (single machine vs group)
 DEPLOY_TARGET ?= single
 
-# File paths (can be overridden)
-ENV_FILE ?= .env
-MCP_FILE ?= mcp-servers.json
+# File paths (can be overridden) - defaults to claude-code-mcps config directory
+ENV_FILE ?= $(HOME)/.config/claude-code-mcps/.env
+MCP_FILE ?= $(HOME)/.config/claude-code-mcps/mcp-servers.json
 SSH_KEY ?= ~/.ssh/id_rsa
 TEMP_BASE_PATH ?= .tmp
 
@@ -169,11 +169,7 @@ help: ## Show this help message
 # =============================================================================
 # Main Deployment Commands
 # =============================================================================
-deploy: check-config test-connection create-dynamic-inventory ## Deploy complete development stack
-	@echo "$(CYAN)🚀 Deploying complete development stack...$(NC)"
-	@echo "$(WHITE)Target: $(YELLOW)$(DEPLOY_TARGET)$(NC)"
-	@echo "$(WHITE)Host: $(YELLOW)$(if $(and $(filter root,$(VM_USER)),$(TARGET_USER)),$(TARGET_USER),$(VM_USER))@$(VM_HOST)$(NC)"
-	@echo "$(WHITE)User: $(YELLOW)$(TARGET_USER)$(NC)"
+deploy: check-config test-connection create-dynamic-inventory ## Deploy complete development stack (optimized)
 	@echo "$(WHITE)Deployment Dir: $(YELLOW)$(DEPLOYMENT_DIR)$(NC)"
 	@echo ""
 	@echo "$(WHITE)🎯 Starting Ansible deployment with timeout protection...$(NC)"

@@ -67,3 +67,39 @@ services_to_enable:
 disable_ipv6: false
 update_cache: true
 upgrade_packages: true
+
+# === Default Configuration Files ===
+# Override these with custom_env_file and custom_mcp_servers_file variables
+default_env_file: "{{ ansible_env.HOME }}/.config/claude-code-mcps/.env"
+default_mcp_servers_file: "{{ ansible_env.HOME }}/.config/claude-code-mcps/mcp-servers.json"
+
+# === Configurable Timeouts (all in seconds) ===
+# Package manager wait settings
+package_manager_max_wait_seconds: 60  # Max wait for package locks to clear
+package_manager_check_interval: 2     # Interval between lock checks
+
+# Git operations timeouts
+git_credential_timeout: 30             # Git credential setup timeout  
+git_clone_timeout: 120                 # Git clone operations timeout
+
+# Kubernetes deployment timeouts  
+k3s_install_timeout: 300               # k3s installation timeout
+k3s_service_start_timeout: 60          # k3s service startup timeout
+nginx_ingress_ready_timeout: 180       # NGINX ingress controller ready timeout
+kubectl_wait_timeout: 120              # Default kubectl wait timeout
+
+# Container and service timeouts
+docker_service_timeout: 60             # Docker service start/restart timeout
+npm_install_timeout: 180               # npm package installation timeout
+
+# Network operation timeouts
+download_timeout: 120                  # Binary/file download timeout
+health_check_timeout: 30               # Service health check timeout
+
+# === Performance Optimization Flags ===
+# Enable parallel execution where possible
+enable_parallel_execution: true
+# Skip non-essential validations in fast mode
+fast_deployment_mode: false
+# Cache downloaded binaries for future deployments
+cache_downloads: true

@@ -145,10 +145,12 @@
         - kubernetes
         - k3s
 
-    - name: Download and install k3s
+    - name: Download and install k3s with timeout
       shell: |
-        curl -sfL {{ k3s_install_script_url }} | {{ k3s_install_env | trim }} sh -s - {{ k3s_install_args | trim }}
+        timeout {{ k3s_install_timeout | default(300) }} curl -sfL {{ k3s_install_script_url }} | {{ k3s_install_env | trim }} sh -s - {{ k3s_install_args | trim }}
       when: k3s_check.rc != 0
+      async: "{{ k3s_install_timeout | default(300) }}"
+      poll: 5
       tags:
         - kubernetes
         - k3s
@@ -159,6 +161,8 @@
         state: started
         enabled: true
         daemon_reload: true
+      async: "{{ k3s_service_start_timeout | default(60) }}"
+      poll: 2
       tags:
         - kubernetes
         - k3s
@@ -209,12 +213,12 @@
 # NGINX Ingress Controller installation
 - name: Install NGINX Ingress Controller
   block:
-    - name: Wait for k3s to be ready
+    - name: Wait for k3s API server to be ready
       wait_for:
         port: 6443
         host: "127.0.0.1"
-        delay: 10
-        timeout: 120
+        delay: 5
+        timeout: "{{ k3s_service_start_timeout | default(60) }}"
       tags:
         - kubernetes
         - nginx-ingress
@@ -244,8 +248,10 @@
         k3s kubectl wait --namespace ingress-nginx \
           --for=condition=ready pod \
           --selector=app.kubernetes.io/component=controller \
-          --timeout=300s
+          --timeout={{ nginx_ingress_ready_timeout | default(180) }}s
       register: nginx_wait_result
+      async: "{{ nginx_ingress_ready_timeout | default(180) }}"
+      poll: 5
       tags:
         - kubernetes
         - nginx-ingress

@@ -22,6 +22,6 @@ galaxy_info:
     - development
     - tools
 
-dependencies:
-  - role: nodejs
-  - role: claude-code
+dependencies: []
+# Note: nodejs and claude-code are handled by main playbook execution order
+# No need for role dependencies since site.yml already ensures correct order
