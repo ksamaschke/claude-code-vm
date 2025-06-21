@@ -314,7 +314,7 @@
       debug:
         msg:
           - "=== User CLAUDE.md Configuration ==="
-          - "{% if user_claude_config.stat.exists %}User already has ~/.claude/CLAUDE.md - skipped creation{% else %}Created ~/.claude/CLAUDE.md with development environment guidance{% endif %}"
+          - "{{ 'User already has ~/.claude/CLAUDE.md - skipped creation' if user_claude_config.stat.exists else 'Created ~/.claude/CLAUDE.md with development environment guidance' }}"
           - "This file provides Claude Code with context about:"
           - "- Kubernetes runtime (k3s with NGINX Ingress)"
           - "- Kubeconfig location (~/.kube/config)"
