@@ -38,7 +38,7 @@ nginx_ingress_version: ""         # NGINX Ingress Controller version (empty for 
 nginx_ingress_manifest_url: "https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml"  # Latest when version is empty
 
 # User configuration (optional but preselected)
-create_user_claude_config: true   # Create CLAUDE.md configuration file for user (preselected)
+create_user_claude_config: false  # Temporarily disabled due to template syntax issue
 allow_command_execution: true     # Allow Claude Code to execute commands on this VM (preselected)
 
 # kompose configuration
