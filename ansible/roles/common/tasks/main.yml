@@ -319,6 +319,12 @@
   blockinfile:
     path: "{{ target_user_home }}/.bashrc"
     block: |
+      # VS Code Remote-SSH detection - bypass screen for VS Code
+      if [[ $TERM_PROGRAM == "vscode" ]] || [[ -n "$VSCODE_INJECTION" ]]; then
+          # VS Code is connecting - don't start screen
+          return 0  # Exit early from .bashrc to avoid screen startup
+      fi
+      
       # Auto-attach to screen session for SSH connections
       if [[ -n "$SSH_CONNECTION" ]] && [[ -z "$STY" ]] && [[ -z "$TMUX" ]]; then
           {{ scripts_dir }}/connect-session.sh
