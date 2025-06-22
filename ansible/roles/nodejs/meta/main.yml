@@ -29,5 +29,4 @@ galaxy_info:
     - ubuntu
     - development
 
-dependencies:
-  - role: common
+dependencies: []

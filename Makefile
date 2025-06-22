@@ -108,6 +108,15 @@ ifneq ($(ALLOW_COMMAND_EXECUTION),)
 	EXTRA_VARS += allow_command_execution=$(ALLOW_COMMAND_EXECUTION)
 endif
 
+# Add Git user configuration options
+ifneq ($(GIT_USER_NAME),)
+	EXTRA_VARS += git_user_name='$(GIT_USER_NAME)'
+endif
+
+ifneq ($(GIT_USER_EMAIL),)
+	EXTRA_VARS += git_user_email='$(GIT_USER_EMAIL)'
+endif
+
 # Add package management options
 ifneq ($(SKIP_PACKAGE_UPGRADE),)
 	EXTRA_VARS += upgrade_packages=false

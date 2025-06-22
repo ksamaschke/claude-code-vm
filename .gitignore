@@ -298,6 +298,12 @@ downloads/
 binaries/
 tools/
 
+# External Ansible roles downloaded at runtime
+ansible/.external-roles/
+
+# External tools downloaded at runtime
+ansible/.external-tools/
+
 # =============================================================================
 # INFRASTRUCTURE AND TERRAFORM
 # =============================================================================

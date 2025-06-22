@@ -17,22 +17,97 @@
     - system
     - user-setup
 
-- name: Ensure /tmp directory has correct permissions for apt operations
-  file:
-    path: /tmp
-    state: directory
-    mode: '1777'
-    owner: root
-    group: root
+- name: Check and fix /tmp directory permissions
+  shell: |
+    current_perms=$(stat -c "%a" /tmp)
+    echo "Current /tmp permissions: $current_perms"
+    
+    if [ "$current_perms" != "1777" ]; then
+      echo "Fixing /tmp permissions from $current_perms to 1777"
+      chmod 1777 /tmp
+      chown root:root /tmp
+      echo "Fixed: /tmp permissions set to 1777"
+    else
+      echo "OK: /tmp permissions already correct (1777)"
+    fi
+  become: true
+  register: tmp_permission_fix
+  changed_when: "'Fixing /tmp permissions' in tmp_permission_fix.stdout"
   tags:
     - system
     - prerequisites
+
+- name: Display /tmp permission status
+  debug:
+    msg: "{{ tmp_permission_fix.stdout_lines }}"
+  tags:
+    - system
+    - prerequisites
+
+- name: Test /tmp write permissions for APT
+  shell: |
+    # Test if current user can create temp files in /tmp
+    test_file="/tmp/apt_test_$$"
+    if touch "$test_file" 2>/dev/null; then
+      rm -f "$test_file"
+      echo "SUCCESS: /tmp is writable"
+    else
+      echo "ERROR: /tmp is not writable"
+      exit 1
+    fi
+  register: tmp_write_test
+  changed_when: false
+  tags:
+    - system
+    - prerequisites
+
+- name: Create keyrings directory for third-party repositories
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: '0755'
+  become: true
+  tags:
+    - system
+    - prerequisites
+
+- name: Wait for package manager to become available
+  shell: |
+    for i in {1..10}; do
+      # Check if any apt/dpkg processes are running
+      if pgrep -f "apt|dpkg|unattended-upgrade" > /dev/null; then
+        echo "Package manager busy, waiting... (attempt $i/10)"
+        sleep 3
+        continue
+      fi
+      
+      # Check for lock files using fuser
+      if fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || \
+         fuser /var/lib/apt/lists/lock >/dev/null 2>&1; then
+        echo "Package manager busy, waiting... (attempt $i/10)"
+        sleep 3
+        continue
+      fi
+      
+      echo "Package manager available"
+      exit 0
+    done
+    echo "Package manager still busy after 30 seconds, proceeding anyway"
+    exit 0
+  register: package_lock_wait_locales
+  changed_when: false
+  tags:
+    - system
+    - locale
 
 - name: Install locales package
   apt:
     name: locales
     state: present
+    update_cache: true
   become: true
+  retries: "{{ package_install_retries | default(3) }}"
+  delay: "{{ package_install_delay | default(10) }}"
   tags:
     - system
     - locale
@@ -73,7 +148,7 @@
     - system
     - packages
 
-- name: Smart wait for package manager locks to clear
+- name: Wait for package manager to become available
   shell: |
     max_wait={{ package_manager_max_wait_seconds }}
     check_interval={{ package_manager_check_interval }}
@@ -81,15 +156,26 @@
     attempt=0
     
     while [ $attempt -lt $max_attempts ]; do
-      if ! pgrep -f "apt|dpkg|unattended-upgrade" > /dev/null && \
-         ! test -f /var/lib/dpkg/lock-frontend && \
-         ! test -f /var/lib/apt/lists/lock; then
-        echo "Package manager is clear"
-        exit 0
+      # Check if any apt/dpkg processes are running
+      if pgrep -f "apt|dpkg|unattended-upgrade" > /dev/null; then
+        echo "Package manager busy, waiting... (attempt $((attempt + 1))/$max_attempts)"
+        sleep $check_interval
+        attempt=$((attempt + 1))
+        continue
       fi
-      echo "Package manager busy, waiting... (attempt $((attempt + 1))/$max_attempts)"
-      sleep $check_interval
-      attempt=$((attempt + 1))
+      
+      # Check for lock files using fuser (more reliable)
+      if fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || \
+         fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || \
+         fuser /var/cache/apt/archives/lock >/dev/null 2>&1; then
+        echo "Package manager busy, waiting... (attempt $((attempt + 1))/$max_attempts)"
+        sleep $check_interval
+        attempt=$((attempt + 1))
+        continue
+      fi
+      
+      echo "Package manager is clear"
+      exit 0
     done
     echo "Package manager still busy after ${max_wait} seconds, proceeding anyway"
   register: package_manager_wait

@@ -75,69 +75,15 @@
       register: claude_check
       changed_when: false
 
-    - name: Check if local claude-code-mcp-management exists in scripts/
-      stat:
-        path: "{{ playbook_dir }}/../scripts/claude-code-mcp-management"
-      register: local_mcp_management
-      delegate_to: localhost
-      become: false
-
-    - name: Copy local claude-code-mcp-management to target
+    - name: Copy latest claude-code-mcp-management to target
       copy:
-        src: "{{ playbook_dir }}/../scripts/claude-code-mcp-management/"
+        src: "{{ playbook_dir }}/../.external-tools/claude-code-mcp-management-main/"
         dest: "{{ mcp_management_dir }}/"
         owner: "{{ target_user }}"
         group: "{{ target_user }}"
         mode: preserve
-      when: local_mcp_management.stat.exists
+      become: true
 
-    - name: Download claude-code-mcp-management repository (fallback)
-      block:
-        - name: Ensure temp directory exists
-          file:
-            path: "{{ temp_dir }}"
-            state: directory
-            owner: "{{ target_user }}"
-            group: "{{ target_user }}"
-            mode: '0755'
-          become: true
-
-        - name: Download repository archive
-          get_url:
-            url: "https://github.com/ksamaschke/claude-code-mcp-management/archive/refs/heads/main.zip"
-            dest: "{{ temp_dir }}/claude-code-mcp-management.zip"
-            owner: "{{ target_user }}"
-            group: "{{ target_user }}"
-            mode: '0644'
-
-        - name: Ensure tools directory exists
-          file:
-            path: "{{ tools_dir }}"
-            state: directory
-            owner: "{{ target_user }}"
-            group: "{{ target_user }}"
-            mode: '0755'
-          become: true
-
-        - name: Extract repository
-          unarchive:
-            src: "{{ temp_dir }}/claude-code-mcp-management.zip"
-            dest: "{{ tools_dir }}/"
-            owner: "{{ target_user }}"
-            group: "{{ target_user }}"
-            remote_src: true
-
-        - name: Rename extracted directory
-          command: mv "{{ tools_dir }}/claude-code-mcp-management-main" "{{ mcp_management_dir }}"
-          become_user: "{{ target_user }}"
-          args:
-            creates: "{{ mcp_management_dir }}"
-
-        - name: Clean up downloaded zip file
-          file:
-            path: "{{ temp_dir }}/claude-code-mcp-management.zip"
-            state: absent
-      when: not local_mcp_management.stat.exists
 
     - name: Check if local mcp-servers.json exists
       stat:

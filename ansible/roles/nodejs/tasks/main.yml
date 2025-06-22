@@ -1,51 +1,86 @@
 ---
-# Node.js role tasks - Install Node.js via NodeSource repository
+# Node.js role tasks - Install Node.js via official NodeSource repository
 
-- name: Install NodeSource GPG key (official method)
-  shell: |
-    curl -fsSL {{ nodejs_gpg_key_url }} | gpg --dearmor -o {{ nodejs_gpg_key_path }}
-    chmod a+r {{ nodejs_gpg_key_path }}
-  args:
-    creates: "{{ nodejs_gpg_key_path }}"
-  register: nodejs_gpg_key
+- name: Check if Node.js is already installed
+  command: node --version
+  register: nodejs_version_check
+  failed_when: false
+  changed_when: false
   tags:
     - nodejs
-    - repository
+    - check
 
-- name: Install python3-debian for repository management
+- name: Check if npm is already installed
+  command: npm --version
+  register: npm_version_check
+  failed_when: false
+  changed_when: false
+  tags:
+    - nodejs
+    - check
+
+- name: Set Node.js version facts
+  set_fact:
+    nodejs_installed: "{{ nodejs_version_check.rc == 0 }}"
+    nodejs_current_version: "{{ nodejs_version_check.stdout | default('none') }}"
+    nodejs_target_version: "{{ nodejs_version | default('22') }}"
+  tags:
+    - nodejs
+
+- name: Install required packages
   apt:
-    name: python3-debian
+    name:
+      - curl
+      - python3-debian
+      - gnupg
     state: present
     update_cache: true
+  when: not nodejs_installed or nodejs_current_version is version('v' + nodejs_target_version, '<')
   tags:
     - nodejs
     - prerequisites
 
-- name: Add NodeSource repository (modern Debian 12 method)
-  ansible.builtin.deb822_repository:
-    name: nodesource
-    types: [deb]
-    uris: ["{{ nodejs_repo_url }}"]
-    suites: ["{{ nodejs_repo_codename }}"]
-    components: [main]
-    signed_by: "{{ nodejs_gpg_key_path }}"
-    state: present
+- name: Download Node.js setup script
+  get_url:
+    url: "https://deb.nodesource.com/setup_{{ nodejs_target_version }}.x"
+    dest: "/tmp/nodesource_setup.sh"
+    mode: '0755'
+    timeout: "{{ download_timeout | default(30) }}"
+  when: not nodejs_installed or nodejs_current_version is version('v' + nodejs_target_version, '<')
+  retries: "{{ nodejs_install_retries | default(3) }}"
+  delay: "{{ nodejs_install_delay | default(10) }}"
+  become: true
   tags:
     - nodejs
-    - repository
+
+- name: Set up Node.js repository
+  shell: bash /tmp/nodesource_setup.sh
+  when: not nodejs_installed or nodejs_current_version is version('v' + nodejs_target_version, '<')
+  become: true
+  tags:
+    - nodejs
 
 - name: Install Node.js
   apt:
     name: nodejs
     state: present
     update_cache: true
-  register: nodejs_installation
-  until: nodejs_installation is succeeded
+  when: not nodejs_installed or nodejs_current_version is version('v' + nodejs_target_version, '<')
   retries: "{{ nodejs_install_retries | default(3) }}"
   delay: "{{ nodejs_install_delay | default(10) }}"
+  until: nodejs_installation is succeeded
+  register: nodejs_installation
   tags:
     - nodejs
     - packages
+
+- name: Remove setup script
+  file:
+    path: /tmp/nodesource_setup.sh
+    state: absent
+  tags:
+    - nodejs
+    - cleanup
 
 - name: Set npm global directory path
   set_fact:

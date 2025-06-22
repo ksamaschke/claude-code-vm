@@ -28,5 +28,4 @@ galaxy_info:
     - ubuntu
     - orchestration
 
-dependencies:
-  - role: common
+dependencies: []
