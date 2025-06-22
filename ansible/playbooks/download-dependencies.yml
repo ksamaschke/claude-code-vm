@@ -1,0 +1,113 @@
+---
+# Download external dependencies playbook
+- name: Download External Dependencies
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  become: false
+  run_once: true
+  tasks:
+    - name: Create external directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: '0755'
+      loop:
+        - "{{ playbook_dir }}/../.external-roles"
+        - "{{ playbook_dir }}/../.external-tools"
+
+    - name: Get latest geerlingguy.docker commit hash
+      uri:
+        url: "https://api.github.com/repos/geerlingguy/ansible-role-docker/commits/master"
+        method: GET
+        return_content: true
+      register: docker_repo_info
+
+    - name: Check current geerlingguy.docker version
+      stat:
+        path: "{{ playbook_dir }}/../.external-roles/.docker-version"
+      register: docker_version_file
+
+    - name: Read current Docker role version
+      slurp:
+        path: "{{ playbook_dir }}/../.external-roles/.docker-version"
+      register: current_docker_version
+      when: docker_version_file.stat.exists
+
+    - name: Download/update geerlingguy.docker role if needed
+      block:
+        - name: Remove old Docker role
+          file:
+            path: "{{ item }}"
+            state: absent
+          loop:
+            - "{{ playbook_dir }}/../.external-roles/ansible-role-docker-master"
+            - "{{ playbook_dir }}/../.external-roles/geerlingguy.docker"
+
+        - name: Download latest geerlingguy.docker role
+          unarchive:
+            src: "https://github.com/geerlingguy/ansible-role-docker/archive/master.tar.gz"
+            dest: "{{ playbook_dir }}/../.external-roles"
+            remote_src: true
+
+        - name: Create symlink for geerlingguy.docker role
+          file:
+            src: "{{ playbook_dir }}/../.external-roles/ansible-role-docker-master"
+            dest: "{{ playbook_dir }}/../.external-roles/geerlingguy.docker"
+            state: link
+
+        - name: Save Docker role version
+          copy:
+            content: "{{ docker_repo_info.json.sha }}"
+            dest: "{{ playbook_dir }}/../.external-roles/.docker-version"
+            mode: '0644'
+      when: >
+        not docker_version_file.stat.exists or
+        (current_docker_version.content | b64decode | trim) != docker_repo_info.json.sha
+
+    - name: Get latest claude-code-mcp-management commit hash
+      uri:
+        url: "https://api.github.com/repos/ksamaschke/claude-code-mcp-management/commits/main"
+        method: GET
+        return_content: true
+      register: mcp_repo_info
+
+    - name: Check current MCP management version
+      stat:
+        path: "{{ playbook_dir }}/../.external-tools/.mcp-version"
+      register: mcp_version_file
+
+    - name: Read current MCP management version
+      slurp:
+        path: "{{ playbook_dir }}/../.external-tools/.mcp-version"
+      register: current_mcp_version
+      when: mcp_version_file.stat.exists
+
+    - name: Download/update claude-code-mcp-management if needed
+      block:
+        - name: Remove old MCP management
+          file:
+            path: "{{ playbook_dir }}/../.external-tools/claude-code-mcp-management-main"
+            state: absent
+
+        - name: Download latest claude-code-mcp-management
+          unarchive:
+            src: "https://github.com/ksamaschke/claude-code-mcp-management/archive/main.tar.gz"
+            dest: "{{ playbook_dir }}/../.external-tools"
+            remote_src: true
+
+        - name: Save MCP management version
+          copy:
+            content: "{{ mcp_repo_info.json.sha }}"
+            dest: "{{ playbook_dir }}/../.external-tools/.mcp-version"
+            mode: '0644'
+      when: >
+        not mcp_version_file.stat.exists or
+        (current_mcp_version.content | b64decode | trim) != mcp_repo_info.json.sha
+
+    - name: Display dependency status
+      debug:
+        msg:
+          - "External dependencies status:"
+          - "Docker role: {{ 'Updated' if (not docker_version_file.stat.exists or (current_docker_version.content | b64decode | trim) != docker_repo_info.json.sha) else 'Current' }}"
+          - "MCP management: {{ 'Updated' if (not mcp_version_file.stat.exists or (current_mcp_version.content | b64decode | trim) != mcp_repo_info.json.sha) else 'Current' }}"

@@ -13,8 +13,8 @@ mcp_template_file: "mcp-servers.template.json"
 
 # Environment file configuration
 use_env_file: true
-env_file_path: "{{ custom_env_file | default(playbook_dir + '/../.env') }}"
-mcp_servers_file: "{{ custom_mcp_servers_file | default(playbook_dir + '/../mcp-servers.json') }}"
+env_file_path: "{{ custom_env_file | default(default_env_file | default(playbook_dir + '/../.env')) }}"
+mcp_servers_file: "{{ custom_mcp_servers_file | default(default_mcp_servers_file | default(playbook_dir + '/../mcp-servers.json')) }}"
 
 # claude-code-mcp-management tool configuration - use hidden deployment directory
 mcp_management_dir: "{{ tools_dir }}/claude-code-mcp-management"

@@ -35,6 +35,10 @@ timezone: "UTC"
 remove_unused_packages: true
 autoremove_packages: true
 
+# Package manager lock settings
+package_manager_max_wait_seconds: 60  # Maximum time to wait for package manager locks
+package_manager_check_interval: 2     # Seconds between lock checks
+
 # Directory settings - use hidden deployment directory (fallback defaults)
 deployment_base_dir: "{{ custom_deployment_dir | default('/home/' + target_user + '/.claude-code-vm') }}"
 scripts_dir: "{{ deployment_base_dir }}/scripts"

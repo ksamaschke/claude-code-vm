@@ -30,6 +30,4 @@ galaxy_info:
     - development
     - containers
 
-dependencies:
-  - role: common
-  - role: docker
+dependencies: []

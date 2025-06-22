@@ -1,20 +1,66 @@
 ---
 # Kubernetes role tasks - Install kubectl, kind, kompose, and bash completions
 
-- name: Install bash-completion package
-  apt:
-    name: "{{ bash_completion_package }}"
-    state: present
-    update_cache: true
+- name: Get target user information
+  getent:
+    database: passwd
+    key: "{{ target_user }}"
+  register: user_info
+  tags:
+    - kubernetes
+
+- name: Set target user home directory
+  set_fact:
+    target_user_home: "{{ user_info.ansible_facts.getent_passwd[target_user][4] }}"
+  tags:
+    - kubernetes
+
+- name: Check if bash-completion is already installed
+  command: dpkg -l bash-completion
+  register: bash_completion_check
+  failed_when: false
+  changed_when: false
   when: install_bash_completion
   tags:
     - kubernetes
     - bash-completion
 
+- name: Install bash-completion package
+  apt:
+    name: "{{ bash_completion_package }}"
+    state: present
+    update_cache: true
+  when: install_bash_completion and bash_completion_check.rc != 0
+  tags:
+    - kubernetes
+    - bash-completion
+
 # kubectl installation
+- name: Check if kubectl is already installed
+  command: kubectl version --client
+  register: kubectl_check
+  failed_when: false
+  changed_when: false
+  when: install_kubectl
+  tags:
+    - kubernetes
+    - kubectl
+
 - name: Install kubectl from Kubernetes repository
   block:
-    - name: Download Kubernetes GPG key
+    - name: Install prerequisites for kubectl
+      apt:
+        name:
+          - curl
+          - gnupg
+          - python3-debian
+        state: present
+      tags:
+        - kubernetes
+        - kubectl
+        - prerequisites
+
+    - name: Download and install Kubernetes GPG key
       shell: |
         curl -fsSL {{ kubernetes_gpg_key_url }} | gpg --dearmor -o {{ kubernetes_gpg_key_path }}
         chmod 644 {{ kubernetes_gpg_key_path }}
@@ -25,22 +71,31 @@
         - kubectl
         - repository
 
-    - name: Add Kubernetes repository
-      apt_repository:
-        repo: "deb [signed-by={{ kubernetes_gpg_key_path }}] {{ kubernetes_repo_url }} /"
-        filename: kubernetes
+    - name: Add Kubernetes repository using deb822 format
+      ansible.builtin.deb822_repository:
+        name: kubernetes
+        types: [deb]
+        uris: "{{ kubernetes_repo_url }}"
+        suites: ["/"]
+        components: []
+        signed_by: "{{ kubernetes_gpg_key_path }}"
         state: present
-        update_cache: true
       tags:
         - kubernetes
         - kubectl
         - repository
 
+    - name: Update apt cache after adding repository
+      apt:
+        update_cache: true
+      tags:
+        - kubernetes
+        - kubectl
+
     - name: Install kubectl
       apt:
         name: kubectl
         state: present
-        update_cache: false
       tags:
         - kubernetes
         - kubectl
@@ -54,7 +109,7 @@
         - kubernetes
         - kubectl
 
-  when: install_kubectl
+  when: install_kubectl and kubectl_check.rc != 0
 
 # kind installation
 - name: Install kind (Kubernetes IN Docker)
@@ -128,27 +183,19 @@
 
     - name: Build k3s installation command
       set_fact:
-        k3s_install_env: |
-          {% if k3s_version %}
-          INSTALL_K3S_VERSION={{ k3s_version }}
-          {% elif k3s_channel %}
-          INSTALL_K3S_CHANNEL={{ k3s_channel }}
-          {% endif %}
-        k3s_install_args: |
-          {% if install_nginx_ingress or k3s_ingress_controller == "nginx" %}
-          --disable=traefik
-          {% elif k3s_ingress_controller == "none" %}
-          --disable=traefik
-          {% endif %}
+        k3s_install_env: "{% if k3s_version %}INSTALL_K3S_VERSION={{ k3s_version }}{% elif k3s_channel %}INSTALL_K3S_CHANNEL={{ k3s_channel }}{% endif %}"
+        k3s_install_args: "--write-kubeconfig-mode=644 --write-kubeconfig-group={{ target_user }}{% if install_nginx_ingress or k3s_ingress_controller == 'nginx' %} --disable=traefik{% elif k3s_ingress_controller == 'none' %} --disable=traefik{% endif %}"
       when: k3s_check.rc != 0
       tags:
         - kubernetes
         - k3s
 
-    - name: Download and install k3s
+    - name: Download and install k3s with timeout
       shell: |
-        curl -sfL {{ k3s_install_script_url }} | {{ k3s_install_env | trim }} sh -s - {{ k3s_install_args | trim }}
+        timeout {{ k3s_install_timeout | default(300) }} curl -sfL {{ k3s_install_script_url }} | {{ k3s_install_env | trim }} sh -s - {{ k3s_install_args | trim }}
       when: k3s_check.rc != 0
+      async: "{{ k3s_install_timeout | default(300) }}"
+      poll: 5
       tags:
         - kubernetes
         - k3s
@@ -159,6 +206,8 @@
         state: started
         enabled: true
         daemon_reload: true
+      async: "{{ k3s_service_start_timeout | default(60) }}"
+      poll: 2
       tags:
         - kubernetes
         - k3s
@@ -196,6 +245,44 @@
         - kubernetes
         - k3s
 
+    - name: Create host kubeconfig directory
+      local_action:
+        module: file
+        path: "{{ host_kubeconfig_directory | expanduser }}"
+        state: directory
+        mode: '0755'
+      when: copy_kubeconfig_to_host
+      become: false
+      tags:
+        - kubernetes
+        - k3s
+        - kubeconfig
+
+    - name: Copy kubeconfig to host machine
+      fetch:
+        src: "{{ k3s_user_kubeconfig_path }}"
+        dest: "{{ host_kubeconfig_directory | expanduser }}/{{ kubeconfig_filename_template }}"
+        flat: true
+        mode: '0600'
+      when: copy_kubeconfig_to_host
+      tags:
+        - kubernetes
+        - k3s
+        - kubeconfig
+
+    - name: Display kubeconfig copy status
+      debug:
+        msg: 
+          - "Kubeconfig copied to host machine:"
+          - "Location: {{ host_kubeconfig_directory | expanduser }}/{{ kubeconfig_filename_template }}"
+          - "To use: export KUBECONFIG={{ host_kubeconfig_directory | expanduser }}/{{ kubeconfig_filename_template }}"
+          - "Or: kubectl --kubeconfig={{ host_kubeconfig_directory | expanduser }}/{{ kubeconfig_filename_template }} get nodes"
+      when: copy_kubeconfig_to_host
+      tags:
+        - kubernetes
+        - k3s
+        - kubeconfig
+
     - name: Verify k3s installation
       command: k3s kubectl version --client
       register: k3s_version_check
@@ -209,12 +296,12 @@
 # NGINX Ingress Controller installation
 - name: Install NGINX Ingress Controller
   block:
-    - name: Wait for k3s to be ready
+    - name: Wait for k3s API server to be ready
       wait_for:
         port: 6443
         host: "127.0.0.1"
-        delay: 10
-        timeout: 120
+        delay: 5
+        timeout: "{{ k3s_service_start_timeout | default(60) }}"
       tags:
         - kubernetes
         - nginx-ingress
@@ -244,8 +331,10 @@
         k3s kubectl wait --namespace ingress-nginx \
           --for=condition=ready pod \
           --selector=app.kubernetes.io/component=controller \
-          --timeout=300s
+          --timeout={{ nginx_ingress_ready_timeout | default(180) }}s
       register: nginx_wait_result
+      async: "{{ nginx_ingress_ready_timeout | default(180) }}"
+      poll: 5
       tags:
         - kubernetes
         - nginx-ingress
@@ -292,7 +381,7 @@
         - kubernetes
         - user-config
 
-    - name: Generate CLAUDE.md from template for user
+    - name: Generate CLAUDE.md from template for user (process conditionals)
       template:
         src: "../../config/CLAUDE.md.default"
         dest: "{{ target_user_home }}/.claude/CLAUDE.md"
@@ -308,7 +397,7 @@
       debug:
         msg:
           - "=== User CLAUDE.md Configuration ==="
-          - "{% if user_claude_config.stat.exists %}User already has ~/.claude/CLAUDE.md - skipped creation{% else %}Created ~/.claude/CLAUDE.md with development environment guidance{% endif %}"
+          - "{{ 'User already has ~/.claude/CLAUDE.md - skipped creation' if user_claude_config.stat.exists else 'Created ~/.claude/CLAUDE.md with development environment guidance' }}"
           - "This file provides Claude Code with context about:"
           - "- Kubernetes runtime (k3s with NGINX Ingress)"
           - "- Kubeconfig location (~/.kube/config)"

@@ -3,7 +3,7 @@
 
 # Kubernetes repository configuration
 kubernetes_version: "v1.33"  # Kubernetes major.minor version
-kubernetes_repo_url: "https://pkgs.k8s.io/core:/stable:/{{ kubernetes_version }}/deb/"
+kubernetes_repo_url: "https://pkgs.k8s.io/core:/stable:/{{ kubernetes_version }}/deb"
 kubernetes_gpg_key_url: "https://pkgs.k8s.io/core:/stable:/{{ kubernetes_version }}/deb/Release.key"
 kubernetes_gpg_key_path: "/etc/apt/keyrings/kubernetes-apt-keyring.gpg"
 
@@ -40,6 +40,11 @@ nginx_ingress_manifest_url: "https://raw.githubusercontent.com/kubernetes/ingres
 # User configuration (optional but preselected)
 create_user_claude_config: true   # Create CLAUDE.md configuration file for user (preselected)
 allow_command_execution: true     # Allow Claude Code to execute commands on this VM (preselected)
+
+# Kubeconfig copy to host machine (optional but preselected)
+copy_kubeconfig_to_host: true     # Copy kubeconfig from target VM to control machine (preselected)
+host_kubeconfig_directory: "~/.kube"  # Directory on control machine to store kubeconfig files
+kubeconfig_filename_template: "{{ vm_host }}-kube"  # Filename pattern for copied kubeconfig
 
 # kompose configuration
 install_kompose: true

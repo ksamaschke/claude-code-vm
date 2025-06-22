@@ -55,9 +55,12 @@
     - mcp
     - env-file
 
-- name: Ensure Ansible is installed for claude-code-mcp-management
+- name: Install MCP server dependencies
   apt:
-    name: ansible
+    name:
+      - ansible
+      - python3-pip
+      - pipx
     state: present
   become: true
   tags:
@@ -71,70 +74,6 @@
       become_user: "{{ target_user }}"
       register: claude_check
       changed_when: false
-
-    - name: Check if local claude-code-mcp-management exists in scripts/
-      stat:
-        path: "{{ playbook_dir }}/../scripts/claude-code-mcp-management"
-      register: local_mcp_management
-      delegate_to: localhost
-      become: false
-
-    - name: Copy local claude-code-mcp-management to target
-      copy:
-        src: "{{ playbook_dir }}/../scripts/claude-code-mcp-management/"
-        dest: "{{ target_user_home }}/claude-code-mcp-management/"
-        owner: "{{ target_user }}"
-        group: "{{ target_user }}"
-        mode: preserve
-      when: local_mcp_management.stat.exists
-
-    - name: Download claude-code-mcp-management repository (fallback)
-      block:
-        - name: Ensure temp directory exists
-          file:
-            path: "{{ temp_dir }}"
-            state: directory
-            owner: "{{ target_user }}"
-            group: "{{ target_user }}"
-            mode: '0755'
-          become: true
-
-        - name: Download repository archive
-          get_url:
-            url: "https://github.com/ksamaschke/claude-code-mcp-management/archive/refs/heads/main.zip"
-            dest: "{{ temp_dir }}/claude-code-mcp-management.zip"
-            owner: "{{ target_user }}"
-            group: "{{ target_user }}"
-            mode: '0644'
-
-        - name: Ensure tools directory exists
-          file:
-            path: "{{ tools_dir }}"
-            state: directory
-            owner: "{{ target_user }}"
-            group: "{{ target_user }}"
-            mode: '0755'
-          become: true
-
-        - name: Extract repository
-          unarchive:
-            src: "{{ temp_dir }}/claude-code-mcp-management.zip"
-            dest: "{{ tools_dir }}/"
-            owner: "{{ target_user }}"
-            group: "{{ target_user }}"
-            remote_src: true
-
-        - name: Rename extracted directory
-          command: mv "{{ tools_dir }}/claude-code-mcp-management-main" "{{ mcp_management_dir }}"
-          become_user: "{{ target_user }}"
-          args:
-            creates: "{{ mcp_management_dir }}"
-
-        - name: Clean up downloaded zip file
-          file:
-            path: "{{ temp_dir }}/claude-code-mcp-management.zip"
-            state: absent
-      when: not local_mcp_management.stat.exists
 
     - name: Check if local mcp-servers.json exists
       stat:
@@ -152,45 +91,38 @@
       become: false
       when: not local_mcp_config_exists.stat.exists
 
-    - name: Copy local mcp-servers.json to claude-code-mcp-management
+    - name: Copy MCP management tool to target VM
+      copy:
+        src: "{{ playbook_dir }}/../../tools/claude-code-mcp-management/"
+        dest: "{{ mcp_management_dir }}/"
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: preserve
+      become: true
+
+    - name: Copy MCP configuration to target VM
       copy:
         src: "{{ mcp_servers_file }}"
-        dest: "{{ target_user_home }}/claude-code-mcp-management/mcp-servers.json"
+        dest: "{{ mcp_management_dir }}/mcp-servers.json"
         owner: "{{ target_user }}"
         group: "{{ target_user }}"
         mode: '0600'
-      delegate_to: localhost
-      become: false
 
-    - name: Copy environment variables to claude-code-mcp-management if available
+    - name: Copy environment file to target VM if it exists
       copy:
         src: "{{ env_file_path }}"
-        dest: "{{ target_user_home }}/claude-code-mcp-management/.env"
+        dest: "{{ mcp_management_dir }}/.env"
         owner: "{{ target_user }}"
         group: "{{ target_user }}"
         mode: '0600'
-      delegate_to: localhost
-      become: false
       when: env_file_stat.stat.exists
 
-
-    - name: Check dependencies in claude-code-mcp-management
+    - name: Run MCP server synchronization on target VM
       shell: |
-        cd {{ target_user_home }}/claude-code-mcp-management
-        export PATH="{{ target_user_home }}/.npm-global/bin:$PATH"
-        make check
-      become_user: "{{ target_user }}"
-      register: mcp_dependency_check
-      failed_when: false
-      args:
-        executable: /bin/bash
-
-    - name: Run MCP server synchronization using proper Makefile syntax
-      shell: |
-        cd {{ target_user_home }}/claude-code-mcp-management
-        export PATH="{{ target_user_home }}/.npm-global/bin:$PATH"
-        # Use the Makefile with proper CONFIG_FILE and ENV_FILE parameters
-        make sync CONFIG_FILE=./mcp-servers.json ENV_FILE=./.env SCOPE=user
+        cd {{ mcp_management_dir }}
+        source {{ target_user_home }}/.bashrc
+        export PATH="{{ target_user_home }}/.npm-global/bin:{{ target_user_home }}/.local/bin:$PATH"
+        make sync SCOPE=user
       become_user: "{{ target_user }}"
       register: mcp_sync_result
       args:
@@ -230,7 +162,7 @@
   debug:
     msg:
       - "=== MCP Server Configuration Complete ==="
-      - "Deployment location: {{ target_user_home }}/claude-code-mcp-management"
+      - "Deployment location: {{ mcp_management_dir }}"
       - "Environment variables loaded: {{ env_vars.keys() | list | length if env_vars is defined else 0 }}"
       - "Configuration file: ./mcp-servers.json"
       - "Environment file: ./.env"

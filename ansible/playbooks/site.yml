@@ -2,6 +2,9 @@
 # Main site playbook - Deploy full stack to Debian VM
 # Installs Docker, Docker Compose, Node.js, and Claude Code
 
+# Import external dependencies playbook first
+- import_playbook: download-dependencies.yml
+
 - name: Deploy Development Stack to Debian VM
   hosts: debian_servers
   become: true
@@ -36,6 +39,7 @@
       changed_when: false
       tags: always
 
+
   roles:
     - role: common
       tags: 
@@ -49,10 +53,12 @@
         - credentials
         - version-control
 
-    - role: docker
+    - role: geerlingguy.docker
       tags:
         - docker
         - containers
+      vars:
+        docker_users: ["{{ target_user }}"]
 
     - role: nodejs
       tags:
@@ -85,6 +91,27 @@
         - ai
 
   post_tasks:
+    - name: Ensure /tmp permissions are correct after all installations
+      shell: |
+        current_perms=$(stat -c "%a" /tmp)
+        if [ "$current_perms" != "1777" ]; then
+          echo "FIXING: /tmp permissions were $current_perms, setting to 1777"
+          chmod 1777 /tmp
+          chown root:root /tmp
+          echo "FIXED: /tmp permissions now correct"
+        else
+          echo "OK: /tmp permissions are correct (1777)"
+        fi
+      become: true
+      register: final_tmp_fix
+      changed_when: "'FIXING:' in final_tmp_fix.stdout"
+      tags: always
+
+    - name: Display /tmp fix status
+      debug:
+        msg: "{{ final_tmp_fix.stdout_lines }}"
+      tags: always
+
     - name: Final system information
       debug:
         msg:

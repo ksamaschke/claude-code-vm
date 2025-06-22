@@ -1,6 +1,15 @@
 ---
 # Git role tasks - Install Git and configure credential providers with URL-based PAT support
 
+- name: Check if Git is already installed
+  command: git --version
+  register: git_check
+  failed_when: false
+  changed_when: false
+  tags:
+    - git
+    - packages
+
 - name: Install Git and dependencies
   apt:
     name:
@@ -10,6 +19,7 @@
       - gnupg
     state: present
     update_cache: true
+  when: git_check.rc != 0
   become: true
   tags:
     - git
@@ -153,7 +163,7 @@
         url: "{{ gcm_download_url }}"
         dest: "{{ gcm_temp_dir }}/{{ gcm_package_name }}"
         mode: '0644'
-        timeout: 30
+        timeout: "{{ download_timeout | default(120) }}"
       register: gcm_download
       until: gcm_download is succeeded
       retries: 3
