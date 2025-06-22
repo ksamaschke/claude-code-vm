@@ -75,16 +75,6 @@
       register: claude_check
       changed_when: false
 
-    - name: Copy latest claude-code-mcp-management to target
-      copy:
-        src: "{{ playbook_dir }}/../.external-tools/claude-code-mcp-management-main/"
-        dest: "{{ mcp_management_dir }}/"
-        owner: "{{ target_user }}"
-        group: "{{ target_user }}"
-        mode: preserve
-      become: true
-
-
     - name: Check if local mcp-servers.json exists
       stat:
         path: "{{ mcp_servers_file }}"
@@ -101,7 +91,16 @@
       become: false
       when: not local_mcp_config_exists.stat.exists
 
-    - name: Copy local mcp-servers.json to claude-code-mcp-management
+    - name: Copy MCP management tool to target VM
+      copy:
+        src: "{{ playbook_dir }}/../../tools/claude-code-mcp-management/"
+        dest: "{{ mcp_management_dir }}/"
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: preserve
+      become: true
+
+    - name: Copy MCP configuration to target VM
       copy:
         src: "{{ mcp_servers_file }}"
         dest: "{{ mcp_management_dir }}/mcp-servers.json"
@@ -109,7 +108,7 @@
         group: "{{ target_user }}"
         mode: '0600'
 
-    - name: Copy environment variables to claude-code-mcp-management if available
+    - name: Copy environment file to target VM if it exists
       copy:
         src: "{{ env_file_path }}"
         dest: "{{ mcp_management_dir }}/.env"
@@ -118,32 +117,12 @@
         mode: '0600'
       when: env_file_stat.stat.exists
 
-
-    - name: Check dependencies in claude-code-mcp-management
-      shell: |
-        cd {{ mcp_management_dir }}
-        export PATH="{{ target_user_home }}/.npm-global/bin:$PATH"
-        make check
-      become_user: "{{ target_user }}"
-      register: mcp_dependency_check
-      failed_when: false
-      args:
-        executable: /bin/bash
-
-    - name: Install uvx (Python package runner) for MCP servers
-      shell: |
-        export PATH="$HOME/.local/bin:$PATH"
-        pipx install uv
-      become_user: "{{ target_user }}"
-      args:
-        creates: "{{ target_user_home }}/.local/bin/uvx"
-
     - name: Run MCP server synchronization on target VM
       shell: |
         cd {{ mcp_management_dir }}
+        source {{ target_user_home }}/.bashrc
         export PATH="{{ target_user_home }}/.npm-global/bin:{{ target_user_home }}/.local/bin:$PATH"
-        ls -la mcp-servers.json .env || echo "Files not found"
-        make sync CONFIG_FILE=mcp-servers.json ENV_FILE=.env SCOPE=user
+        make sync SCOPE=user
       become_user: "{{ target_user }}"
       register: mcp_sync_result
       args:

@@ -156,18 +156,8 @@
     attempt=0
     
     while [ $attempt -lt $max_attempts ]; do
-      # Check if any apt/dpkg processes are running
-      if pgrep -f "apt|dpkg|unattended-upgrade" > /dev/null; then
-        echo "Package manager busy, waiting... (attempt $((attempt + 1))/$max_attempts)"
-        sleep $check_interval
-        attempt=$((attempt + 1))
-        continue
-      fi
-      
-      # Check for lock files using fuser (more reliable)
-      if fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || \
-         fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || \
-         fuser /var/cache/apt/archives/lock >/dev/null 2>&1; then
+      # Only check for actual running processes, not lock files
+      if pgrep -f "apt-get|aptitude|dpkg|unattended-upgrade" > /dev/null; then
         echo "Package manager busy, waiting... (attempt $((attempt + 1))/$max_attempts)"
         sleep $check_interval
         attempt=$((attempt + 1))
@@ -187,7 +177,7 @@
 - name: Display package manager status
   debug:
     msg: "{{ package_manager_wait.stdout_lines }}"
-  when: package_manager_wait.stdout_lines is defined
+  when: package_manager_wait.stdout_lines is defined and package_manager_wait.stdout_lines | length > 1
   tags:
     - system
     - packages
