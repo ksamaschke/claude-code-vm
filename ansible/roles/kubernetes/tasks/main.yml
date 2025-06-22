@@ -48,17 +48,29 @@
 
 - name: Install kubectl from Kubernetes repository
   block:
-    - name: Install prerequisites for kubectl
+    - name: Install prerequisites for kubectl and Ansible Kubernetes modules
       apt:
         name:
           - curl
           - gnupg
           - python3-debian
+          - python3-pip
+          - python3-kubernetes
         state: present
       tags:
         - kubernetes
         - kubectl
         - prerequisites
+
+    - name: Install Kubernetes Python module for Ansible
+      pip:
+        name:
+          - kubernetes
+          - PyYAML
+        state: present
+      tags:
+        - kubernetes
+        - ansible-modules
 
     - name: Download and install Kubernetes GPG key
       shell: |
@@ -139,6 +151,70 @@
         - kind
 
   when: install_kind
+
+# Helm installation
+- name: Install Helm (Kubernetes package manager)
+  block:
+    - name: Create temporary directory for Helm download
+      tempfile:
+        state: directory
+        suffix: helm
+      register: helm_temp_dir
+      tags:
+        - kubernetes
+        - helm
+
+    - name: Download Helm tarball
+      get_url:
+        url: "{{ helm_binary_url }}"
+        dest: "{{ helm_temp_dir.path }}/helm.tar.gz"
+        timeout: 30
+      register: helm_download
+      until: helm_download is succeeded
+      retries: 3
+      delay: 5
+      tags:
+        - kubernetes
+        - helm
+
+    - name: Extract Helm binary
+      unarchive:
+        src: "{{ helm_temp_dir.path }}/helm.tar.gz"
+        dest: "{{ helm_temp_dir.path }}"
+        remote_src: true
+      tags:
+        - kubernetes
+        - helm
+
+    - name: Install Helm binary
+      copy:
+        src: "{{ helm_temp_dir.path }}/linux-amd64/helm"
+        dest: "{{ helm_install_path }}"
+        mode: '0755'
+        owner: root
+        group: root
+        remote_src: true
+      tags:
+        - kubernetes
+        - helm
+
+    - name: Clean up Helm temporary directory
+      file:
+        path: "{{ helm_temp_dir.path }}"
+        state: absent
+      tags:
+        - kubernetes
+        - helm
+
+    - name: Verify Helm installation
+      command: "{{ helm_install_path }} version"
+      register: helm_version_check
+      changed_when: false
+      tags:
+        - kubernetes
+        - helm
+
+  when: install_helm
 
 # kompose installation
 - name: Install kompose (Compose to Kubernetes converter)
@@ -326,6 +402,17 @@
         - kubernetes
         - nginx-ingress
 
+    - name: Configure NGINX Ingress Controller with VM IP address
+      shell: |
+        k3s kubectl patch service ingress-nginx-controller \
+          -n ingress-nginx \
+          --type='merge' \
+          -p='{"spec":{"externalIPs":["{{ ansible_default_ipv4.address }}"]}}'
+      register: nginx_ip_patch
+      tags:
+        - kubernetes
+        - nginx-ingress
+
     - name: Wait for NGINX Ingress Controller to be ready
       shell: |
         k3s kubectl wait --namespace ingress-nginx \
@@ -480,6 +567,22 @@
         - bash-completion
         - k3s
 
+    - name: Add Helm completion to user .bashrc
+      lineinfile:
+        path: "{{ user_info.results[index].ansible_facts.getent_passwd[item][4] }}/.bashrc"
+        line: "source <(helm completion bash)"
+        create: true
+        owner: "{{ item }}"
+        group: "{{ item }}"
+      loop: "{{ configure_completions_for_users }}"
+      loop_control:
+        index_var: index
+      when: install_helm and install_bash_completion
+      tags:
+        - kubernetes
+        - bash-completion
+        - helm
+
     - name: Add Kubernetes and Docker aliases to user .bashrc
       blockinfile:
         path: "{{ user_info.results[index].ansible_facts.getent_passwd[item][4] }}/.bashrc"
@@ -549,6 +652,12 @@
       changed_when: false
       when: install_k3s
 
+    - name: Check Helm version
+      command: "{{ helm_install_path }} version"
+      register: helm_version_output
+      changed_when: false
+      when: install_helm
+
     - name: Display Kubernetes tools versions
       debug:
         msg:
@@ -557,6 +666,7 @@
           - "kind: {{ kind_version_output.stdout if install_kind else 'Not installed' }}"
           - "k3s: {{ k3s_version_output.stdout if install_k3s else 'Not installed' }}"
           - "kompose: {{ kompose_version_output.stdout if install_kompose else 'Not installed' }}"
+          - "helm: {{ helm_version_output.stdout if install_helm else 'Not installed' }}"
 
     - name: Verify bash completion is available
       shell: |

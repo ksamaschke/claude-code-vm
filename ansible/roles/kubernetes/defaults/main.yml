@@ -44,7 +44,13 @@ allow_command_execution: true     # Allow Claude Code to execute commands on thi
 # Kubeconfig copy to host machine (optional but preselected)
 copy_kubeconfig_to_host: true     # Copy kubeconfig from target VM to control machine (preselected)
 host_kubeconfig_directory: "~/.kube"  # Directory on control machine to store kubeconfig files
-kubeconfig_filename_template: "{{ vm_host }}-kube"  # Filename pattern for copied kubeconfig
+kubeconfig_filename_template: "{{ ansible_host }}-kube"  # Filename pattern for copied kubeconfig
+
+# Helm configuration
+install_helm: true
+helm_version: "v3.17.0"
+helm_binary_url: "https://get.helm.sh/helm-{{ helm_version }}-linux-amd64.tar.gz"
+helm_install_path: "/usr/local/bin/helm"
 
 # kompose configuration
 install_kompose: true
