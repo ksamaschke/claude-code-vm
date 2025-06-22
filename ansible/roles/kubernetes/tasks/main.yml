@@ -62,7 +62,7 @@
         - kubectl
         - prerequisites
 
-    - name: Install Kubernetes Python module for Ansible
+    - name: Install Kubernetes Python modules for Ansible via APT
       apt:
         name:
           - python3-kubernetes
