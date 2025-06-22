@@ -100,30 +100,17 @@
         mode: preserve
       become: true
 
-    - name: Copy MCP configuration to target VM
-      copy:
-        src: "{{ mcp_servers_file }}"
-        dest: "{{ mcp_management_dir }}/mcp-servers.json"
-        owner: "{{ target_user }}"
-        group: "{{ target_user }}"
-        mode: '0600'
-
-    - name: Copy environment file to target VM if it exists
-      copy:
-        src: "{{ env_file_path }}"
-        dest: "{{ mcp_management_dir }}/.env"
-        owner: "{{ target_user }}"
-        group: "{{ target_user }}"
-        mode: '0600'
-      when: env_file_stat.stat.exists
-
-    - name: Run MCP server synchronization on target VM
+    - name: Synchronize MCP servers using remote configuration tool
       shell: |
-        cd {{ mcp_management_dir }}
-        source {{ target_user_home }}/.bashrc
-        export PATH="{{ target_user_home }}/.npm-global/bin:{{ target_user_home }}/.local/bin:$PATH"
-        make sync SCOPE=user
-      become_user: "{{ target_user }}"
+        ansible-playbook {{ playbook_dir }}/../../tools/claude-code-mcp-management/ansible/manage-mcp.yml \
+          -e "mode=all" \
+          -e "operation_mode=sync" \
+          -e "config_file={{ mcp_servers_file }}" \
+          -e "env_file={{ env_file_path }}" \
+          -e "mcp_target_host={{ ansible_host }}" \
+          -e "ansible_user={{ target_user }}"
+      delegate_to: localhost
+      become: false
       register: mcp_sync_result
       args:
         executable: /bin/bash
