@@ -55,17 +55,8 @@
     - mcp
     - env-file
 
-- name: Install MCP server dependencies
-  apt:
-    name:
-      - ansible
-      - python3-pip
-      - pipx
-    state: present
-  become: true
-  tags:
-    - mcp
-    - prerequisites
+# MCP server dependencies are already handled by other roles
+# No need to install Ansible on the target machine
 
 - name: Configure MCP servers using claude-code-mcp-management
   block:
@@ -91,18 +82,9 @@
       become: false
       when: not local_mcp_config_exists.stat.exists
 
-    - name: Copy MCP management tool to target VM
-      copy:
-        src: "{{ playbook_dir }}/../../tools/claude-code-mcp-management/"
-        dest: "{{ mcp_management_dir }}/"
-        owner: "{{ target_user }}"
-        group: "{{ target_user }}"
-        mode: preserve
-      become: true
-
     - name: Synchronize MCP servers using remote configuration tool
       shell: |
-        ansible-playbook {{ playbook_dir }}/../../tools/claude-code-mcp-management/ansible/manage-mcp.yml \
+        ansible-playbook {{ playbook_dir }}/../.external-tools/claude-code-mcp-management-main/ansible/manage-mcp.yml \
           -e "mode=all" \
           -e "operation_mode=sync" \
           -e "config_file={{ mcp_servers_file }}" \
@@ -129,17 +111,13 @@
           - "{{ mcp_sync_result.stdout_lines | default(['No output']) }}"
       when: mcp_sync_result.stdout_lines is defined
 
-    - name: Show available MCP management commands
+    - name: Show MCP configuration status
       debug:
         msg:
-          - "=== Available MCP Commands on Target VM ==="
-          - "SSH to {{ target_user }}@{{ ansible_host }} and run:"
-          - "cd ~/.claude-code-vm/claude-code-mcp-management"
-          - "make list                    # List current MCP servers"
-          - "make sync                    # Sync all servers from config"
-          - "make add SERVERS=name1,name2 # Add specific servers"
-          - "make dry-run                 # Preview changes"
-          - "make sync CONFIG_FILE=/custom/path.json ENV_FILE=/custom/.env"
+          - "=== MCP Server Configuration Status ==="
+          - "MCP servers have been configured for Claude Code on {{ target_user }}@{{ ansible_host }}"
+          - "Configuration applied from: {{ mcp_servers_file }}"
+          - "Environment variables loaded from: {{ env_file_path }}"
 
   tags:
     - mcp
@@ -149,22 +127,13 @@
   debug:
     msg:
       - "=== MCP Server Configuration Complete ==="
-      - "Deployment location: {{ mcp_management_dir }}"
+      - "Target host: {{ target_user }}@{{ ansible_host }}"
       - "Environment variables loaded: {{ env_vars.keys() | list | length if env_vars is defined else 0 }}"
-      - "Configuration file: ./mcp-servers.json"
-      - "Environment file: ./.env"
+      - "Configuration file: {{ mcp_servers_file }}"
+      - "Environment file: {{ env_file_path }}"
       - ""
-      - "Management commands:"
-      - "SSH to {{ ansible_host }} and run:"
-      - "cd ~/.claude-code-vm/claude-code-mcp-management"
-      - "make list     # List current servers"
-      - "make sync     # Sync all servers"
-      - "make dry-run  # Preview changes"
-      - ""
-      - "Next steps:"
-      - "1. Claude Code MCP servers are now configured"
-      - "2. Use 'make list' to verify installation"
-      - "3. Test MCP functionality in Claude Code"
+      - "Claude Code on the target VM has been configured with the specified MCP servers."
+      - "The user can now use Claude Code with the configured MCP servers."
   tags:
     - mcp
     - completion

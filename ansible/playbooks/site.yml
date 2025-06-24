@@ -54,6 +54,7 @@
         - version-control
 
     - role: geerlingguy.docker
+      when: install_docker | default(false) | bool
       tags:
         - docker
         - containers
@@ -68,13 +69,11 @@
       vars:
         npm_global_packages: "{{ nodejs_npm_global_packages | default([]) }}"
 
-    - role: claude-code
-      tags:
-        - claude-code
-        - ai
-        - cli
+    # Claude Code is installed via npm in the nodejs role
+    # The claude-code role reference can be removed or used for additional configuration
 
     - role: kubernetes
+      when: install_kubectl | default(false) | bool or install_kind | default(false) | bool or install_kompose | default(false) | bool
       tags:
         - kubernetes
         - kubectl

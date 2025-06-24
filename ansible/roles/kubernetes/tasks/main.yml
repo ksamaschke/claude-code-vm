@@ -63,11 +63,12 @@
         - prerequisites
 
     - name: Install Kubernetes Python module for Ansible
-      pip:
+      apt:
         name:
-          - kubernetes
-          - PyYAML
+          - python3-kubernetes
+          - python3-yaml
         state: present
+      become: true
       tags:
         - kubernetes
         - ansible-modules

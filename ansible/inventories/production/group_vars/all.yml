@@ -22,6 +22,7 @@ screen_logs_dir: "{{ logs_dir }}/screen"
 
 # Docker configuration
 # docker_users automatically includes target_user
+install_docker: false  # Set to true for full deployment
 docker_install_compose: true
 docker_compose_version: "latest"
 
@@ -50,10 +51,10 @@ configure_git_signing: false
 enable_ssh_url_conversion: false
 
 # Kubernetes tools configuration
-install_kubectl: true
-install_kind: true
-install_kompose: true
-install_bash_completion: true
+install_kubectl: false  # Set to true for full deployment
+install_kind: false     # Set to true for full deployment
+install_kompose: false  # Set to true for full deployment
+install_bash_completion: true  # Generally useful, keep enabled
 kubernetes_version: "v1.33"
 kind_version: "v0.29.0"
 kompose_version: "v1.36.0"

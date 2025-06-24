@@ -157,6 +157,17 @@
     - npm
     - update
 
+- name: Debug npm_global_packages variable
+  debug:
+    msg: 
+      - "npm_global_packages: {{ npm_global_packages | default('NOT SET') }}"
+      - "npm_global_packages length: {{ npm_global_packages | length | default(0) }}"
+      - "npm_config_prefix: {{ npm_config_prefix | default('NOT SET') }}"
+  tags:
+    - nodejs
+    - npm
+    - packages
+
 - name: Install global npm packages
   npm:
     name: "{{ item }}"
@@ -166,7 +177,7 @@
   environment:
     PATH: "{{ npm_config_prefix }}/bin:{{ ansible_env.PATH }}"
   loop: "{{ npm_global_packages }}"
-  when: npm_global_packages | length > 0 and npm_config_prefix is defined
+  when: npm_global_packages is defined and npm_global_packages | length > 0 and npm_config_prefix is defined
   tags:
     - nodejs
     - npm

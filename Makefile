@@ -15,7 +15,7 @@
 #
 # =============================================================================
 
-.PHONY: help deploy validate clean setup check-config test-connection create-dynamic-inventory deploy-mcp setup-mcp-tool generate-mcp-config
+.PHONY: help deploy deploy-base validate clean setup check-config test-connection create-dynamic-inventory deploy-mcp setup-mcp-tool generate-mcp-config
 
 # Default target
 .DEFAULT_GOAL := help
@@ -181,8 +181,27 @@ help: ## Show this help message
 deploy: check-config test-connection create-dynamic-inventory ## Deploy complete development stack (optimized)
 	@echo "$(WHITE)Deployment Dir: $(YELLOW)$(DEPLOYMENT_DIR)$(NC)"
 	@echo ""
-	@echo "$(WHITE)🎯 Starting Ansible deployment with timeout protection...$(NC)"
-	@timeout 1800 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS)" $(LIMIT_FLAG) || { \
+	@echo "$(WHITE)🎯 Starting full deployment (all components)...$(NC)"
+	@timeout 1800 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i ansible/inventories/production -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS) install_docker=true install_kubectl=true install_kind=true install_kompose=true" $(LIMIT_FLAG) || { \
+		echo "$(RED)❌ Deployment failed or timed out$(NC)"; \
+		echo "$(YELLOW)💡 Possible issues:$(NC)"; \
+		echo "$(YELLOW)  - VM became unreachable during deployment$(NC)"; \
+		echo "$(YELLOW)  - Network connectivity issues$(NC)"; \
+		echo "$(YELLOW)  - Deployment took longer than 30 minutes$(NC)"; \
+		echo "$(YELLOW)🔧 Troubleshooting:$(NC)"; \
+		echo "$(YELLOW)  - Run 'make test-connection' to verify VM status$(NC)"; \
+		echo "$(YELLOW)  - Check VM resources (disk space, memory)$(NC)"; \
+		echo "$(YELLOW)  - Review deployment logs for specific errors$(NC)"; \
+		exit 1; \
+	}
+	@echo ""
+	@echo "$(GREEN)✅ Deployment complete!$(NC)"
+
+deploy-base: check-config test-connection create-dynamic-inventory ## Deploy base system only (Git, Node.js, MCP)
+	@echo "$(WHITE)Deployment Dir: $(YELLOW)$(DEPLOYMENT_DIR)$(NC)"
+	@echo ""
+	@echo "$(WHITE)🎯 Starting base system deployment (Git, Node.js, MCPs)...$(NC)"
+	@timeout 1800 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i ansible/inventories/production -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS)" --tags "common,git,nodejs,mcp" $(LIMIT_FLAG) || { \
 		echo "$(RED)❌ Deployment failed or timed out$(NC)"; \
 		echo "$(YELLOW)💡 Possible issues:$(NC)"; \
 		echo "$(YELLOW)  - VM became unreachable during deployment$(NC)"; \
@@ -438,6 +457,8 @@ setup: ## First-time setup
 		fi; \
 		echo "$(GREEN)✅ Created $(MCP_FILE)$(NC)"; \
 	fi
+	@echo "$(YELLOW)📦 Downloading external dependencies...$(NC)"
+	@cd ansible && ansible-playbook playbooks/download-dependencies.yml
 	@echo "$(GREEN)✅ Setup complete!$(NC)"
 
 # =============================================================================
