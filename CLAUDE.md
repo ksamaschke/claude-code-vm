@@ -49,7 +49,8 @@ This system deploys to **remote Debian VMs**, not your local machine. The deploy
 make setup                                              # First-time setup, creates .env from template
 make check-config                                       # Validate configuration
 make test-connection VM_HOST=<ip> TARGET_USER=<user>   # Test SSH connectivity to target VM
-make deploy VM_HOST=<ip> TARGET_USER=<user>             # Deploy complete development stack to remote VM
+make deploy VM_HOST=<ip> TARGET_USER=<user>             # Deploy complete development stack (all components)
+make deploy-base VM_HOST=<ip> TARGET_USER=<user>        # Deploy base system only (Git, Node.js, Claude Code, MCP)
 make validate VM_HOST=<ip> TARGET_USER=<user>           # Verify all components on remote VM
 
 # Component-specific deployment to remote VM (use Ansible directly)
@@ -140,21 +141,27 @@ The system automatically configures Git servers on the target VM based on enviro
 
 1. **First-time setup**: `make setup` → edit `.env` → `make check-config`
 2. **Test connectivity**: `make test-connection VM_HOST=192.168.1.100 TARGET_USER=developer`
-3. **Deploy to remote VM**: `make deploy VM_HOST=192.168.1.100 TARGET_USER=developer`
+3. **Choose deployment type**:
+   - Base system: `make deploy-base VM_HOST=192.168.1.100 TARGET_USER=developer`
+   - Full system: `make deploy VM_HOST=192.168.1.100 TARGET_USER=developer`
 4. **Validate remote deployment**: `make validate VM_HOST=192.168.1.100 TARGET_USER=developer`
-5. **Update configuration**: Edit `.env` → redeploy with `make deploy`
+5. **Update configuration**: Edit `.env` → redeploy with appropriate make command
 
 **Important**: All deployment happens TO the target VM, not on your local machine. The Makefile provides colored output and comprehensive help via `make help`.
 
 ## Post-Deployment (What Gets Installed on Target VM)
 
-After successful deployment, the **target VM** will have:
-- **Docker**: Running without sudo for the target user
-- **Node.js 22 LTS**: With Claude Code CLI globally installed
+### Base Deployment (`deploy-base`)
 - **Git**: Configured with encrypted credential storage for all defined hosting services
-- **Kubernetes tools**: kubectl, k3s (preselected), kind (optional), kompose with bash completions
+- **Node.js 22 LTS**: With Claude Code CLI globally installed
 - **Claude Code CLI**: Installed and ready to use
+- **MCP servers**: Configured based on your mcp-servers.json
 - **SSH keys**: Generated for additional authentication options
+
+### Full Deployment (`deploy`) - Everything from base plus:
+- **Docker**: Running without sudo for the target user
+- **Kubernetes tools**: kubectl, k3s (preselected), kind (optional), kompose with bash completions
+- **Container orchestration**: Ready for development
 - **Optional**: User CLAUDE.md configuration with environment-specific guidance
 
 ### User CLAUDE.md Configuration (on Target VM)

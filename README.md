@@ -41,7 +41,8 @@ make deploy VM_HOST=192.168.1.100 TARGET_USER=developer
 ```bash
 make help              # Show comprehensive help and usage examples
 make setup             # Initialize environment files (.env, mcp-servers.json)
-make deploy            # Deploy complete development stack
+make deploy            # Deploy complete development stack (all components)
+make deploy-base       # Deploy base system only (Git, Node.js, Claude Code, MCP)
 make validate          # Verify all deployed components are working
 make deploy-mcp        # Deploy MCP servers only (after initial deployment)
 make clean             # Clean up temporary files
@@ -114,6 +115,24 @@ make deploy VM_HOST=192.168.1.100 TARGET_USER=dev ENV_FILE=production.env
 - **Deployment validation** with component status reporting
 - **Screen session management** for persistent terminal sessions
 - **Configurable authentication** (SSH keys, passwords)
+
+## 🎯 Deployment Options
+
+### Base Deployment (`make deploy-base`)
+Includes essential components only:
+- **Git** with credential management
+- **Node.js 22 LTS** with npm
+- **Claude Code CLI** 
+- **MCP server configuration**
+
+### Full Deployment (`make deploy`)
+Includes everything from base deployment plus:
+- **Docker** and Docker Compose
+- **Kubernetes tools** (kubectl, k3s/KIND, kompose)
+- **Container orchestration** capabilities
+
+Choose the deployment that matches your needs. The base deployment is perfect for 
+development environments that don't require containerization.
 
 ## 🔍 Quick Troubleshooting
 
