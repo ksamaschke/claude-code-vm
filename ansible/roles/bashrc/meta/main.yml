@@ -1,0 +1,26 @@
+---
+galaxy_info:
+  role_name: bashrc
+  author: Claude Code VM
+  description: Enhanced bashrc integrations for Docker, Kubernetes, and development tools
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms:
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+    - name: Ubuntu
+      versions:
+        - "20.04"
+        - "22.04"
+        - "24.04"
+  galaxy_tags:
+    - shell
+    - bash
+    - docker
+    - kubernetes
+    - development
+    - aliases
+
+dependencies: []

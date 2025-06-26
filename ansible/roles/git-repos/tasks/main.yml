@@ -1,0 +1,326 @@
+---
+# Git Repository Management Tasks - Automated repository cloning and management
+
+- name: Get target user information
+  getent:
+    database: passwd
+    key: "{{ target_user }}"
+  register: user_info
+  when: target_user is defined
+  tags:
+    - git-repos
+
+- name: Set target user home directory
+  set_fact:
+    target_user_home: "{{ user_info.ansible_facts.getent_passwd[target_user][4] if target_user is defined else ansible_env.HOME }}"
+  tags:
+    - git-repos
+
+- name: Set final Git repositories base directory
+  set_fact:
+    final_git_repos_base_dir: "{{ git_repos_base_dir | regex_replace('^~', target_user_home) }}"
+  tags:
+    - git-repos
+
+# =============================================================================
+# Environment File Processing
+# =============================================================================
+- name: Check for Git configuration file
+  stat:
+    path: "{{ git_config_file_path }}"
+  register: git_config_file_stat
+  delegate_to: localhost
+  become: false
+  when: use_git_config_file
+  tags:
+    - git-repos
+    - config-file
+
+- name: Parse Git configuration from environment file
+  shell: |
+    if [ -f "{{ git_config_file_path }}" ]; then
+      # Load environment variables properly handling quoted values
+      set -a
+      . "{{ git_config_file_path }}"
+      set +a
+      
+      # Build JSON output with proper escaping
+      git_user_name_escaped=$(echo "${GIT_USER_NAME:-}" | sed 's/"/\\"/g' | sed 's/\\/\\\\/g')
+      git_user_email_escaped=$(echo "${GIT_USER_EMAIL:-}" | sed 's/"/\\"/g' | sed 's/\\/\\\\/g')
+      git_repos_base_dir_escaped=$(echo "${GIT_REPOS_BASE_DIR:-}" | sed 's/"/\\"/g' | sed 's/\\/\\\\/g')
+      git_default_branch_escaped=$(echo "${GIT_DEFAULT_BRANCH:-}" | sed 's/"/\\"/g' | sed 's/\\/\\\\/g')
+      
+      echo "{"
+      echo "  \"git_user_name\": \"${git_user_name_escaped}\","
+      echo "  \"git_user_email\": \"${git_user_email_escaped}\","
+      echo "  \"git_repos_base_dir\": \"${git_repos_base_dir_escaped}\","
+      echo "  \"git_default_branch\": \"${git_default_branch_escaped}\","
+      echo "  \"git_update_existing\": \"${GIT_UPDATE_EXISTING:-true}\","
+      echo "  \"git_create_dev_structure\": \"${GIT_CREATE_DEV_STRUCTURE:-true}\","
+      echo "  \"git_setup_hooks\": \"${GIT_SETUP_HOOKS:-false}\","
+      echo "  \"repositories\": ["
+      
+      # Find all repository definitions - support both GIT_REPO_URL and GIT_REPO_1_URL formats
+      numbered_repos=$(grep '^GIT_REPO_[0-9]\+_URL=' "{{ git_config_file_path }}" | sed 's/GIT_REPO_//g' | sed 's/_URL=.*//g' | sort -n)
+      single_repo=$(grep '^GIT_REPO_URL=' "{{ git_config_file_path }}" | head -1)
+      
+      first=true
+      
+      # Handle single repository (GIT_REPO_URL format)
+      if [ -n "$single_repo" ]; then
+        url=$(eval echo \$GIT_REPO_URL)
+        branch=$(eval echo \$GIT_REPO_BRANCH)
+        dir=$(eval echo \$GIT_REPO_DIR)
+        depth=$(eval echo \$GIT_REPO_DEPTH)
+        
+        if [ -n "$url" ]; then
+          if [ "$first" = true ]; then first=false; else echo ","; fi
+          echo "    {"
+          echo "      \"number\": \"1\","
+          echo "      \"url\": \"${url}\","
+          echo "      \"branch\": \"${branch:-}\","
+          echo "      \"dir\": \"${dir:-}\","
+          echo "      \"depth\": \"${depth:-}\""
+          
+          # Add configuration variables for single repo
+          config_vars=$(grep "^GIT_REPO_CONFIG_" "{{ git_config_file_path }}" || true)
+          if [ -n "$config_vars" ]; then
+            echo "      ,\"config\": {"
+            config_first=true
+            echo "$config_vars" | while read -r config_line; do
+              if [ -n "$config_line" ]; then
+                config_key=$(echo "$config_line" | sed "s/GIT_REPO_CONFIG_//g" | sed 's/=.*//g')
+                config_value=$(echo "$config_line" | sed 's/.*=//g' | sed 's/^"//g' | sed 's/"$//g')
+                config_value_escaped=$(echo "$config_value" | sed 's/"/\\"/g' | sed 's/\\/\\\\/g')
+                if [ "$config_first" = true ]; then config_first=false; else echo ","; fi
+                echo "        \"${config_key}\": \"${config_value_escaped}\""
+              fi
+            done
+            echo "      }"
+          fi
+          
+          # Add remote variables for single repo
+          remote_vars=$(grep "^GIT_REPO_REMOTE_" "{{ git_config_file_path }}" || true)
+          if [ -n "$remote_vars" ]; then
+            echo "      ,\"remotes\": {"
+            remote_first=true
+            echo "$remote_vars" | while read -r remote_line; do
+              if [ -n "$remote_line" ]; then
+                remote_name=$(echo "$remote_line" | sed "s/GIT_REPO_REMOTE_//g" | sed 's/=.*//g')
+                remote_url=$(echo "$remote_line" | sed 's/.*=//g' | sed 's/^"//g' | sed 's/"$//g')
+                if [ "$remote_first" = true ]; then remote_first=false; else echo ","; fi
+                echo "        \"${remote_name}\": \"${remote_url}\""
+              fi
+            done
+            echo "      }"
+          fi
+          
+          # Add post-clone command
+          post_clone=$(eval echo \$GIT_REPO_POST_CLONE)
+          if [ -n "$post_clone" ]; then
+            post_clone_escaped=$(echo "$post_clone" | sed 's/"/\\"/g' | sed 's/\\/\\\\/g')
+            echo "      ,\"post_clone\": \"${post_clone_escaped}\""
+          fi
+          
+          echo -n "    }"
+        fi
+      fi
+      
+      # Handle numbered repositories (GIT_REPO_1_URL format)
+      for repo_num in $numbered_repos; do
+        # Get variables for this repository
+        url_var="GIT_REPO_${repo_num}_URL"
+        branch_var="GIT_REPO_${repo_num}_BRANCH"
+        dir_var="GIT_REPO_${repo_num}_DIR"
+        depth_var="GIT_REPO_${repo_num}_DEPTH"
+        
+        url=$(eval echo \$${url_var})
+        branch=$(eval echo \$${branch_var})
+        dir=$(eval echo \$${dir_var})
+        depth=$(eval echo \$${depth_var})
+        
+        # Only add if URL is present
+        if [ -n "$url" ]; then
+          if [ "$first" = true ]; then first=false; else echo ","; fi
+          echo "    {"
+          echo "      \"number\": \"${repo_num}\","
+          echo "      \"url\": \"${url}\","
+          echo "      \"branch\": \"${branch:-}\","
+          echo "      \"dir\": \"${dir:-}\","
+          echo "      \"depth\": \"${depth:-}\""
+          
+          # Add configuration variables for this repo
+          config_vars=$(grep "^GIT_REPO_${repo_num}_CONFIG_" "{{ git_config_file_path }}" || true)
+          if [ -n "$config_vars" ]; then
+            echo "      ,\"config\": {"
+            config_first=true
+            echo "$config_vars" | while read -r config_line; do
+              if [ -n "$config_line" ]; then
+                config_key=$(echo "$config_line" | sed "s/GIT_REPO_${repo_num}_CONFIG_//g" | sed 's/=.*//g')
+                config_value=$(echo "$config_line" | sed 's/.*=//g' | sed 's/^"//g' | sed 's/"$//g')
+                # Escape quotes and special characters for JSON
+                config_value_escaped=$(echo "$config_value" | sed 's/"/\\"/g' | sed 's/\\/\\\\/g')
+                if [ "$config_first" = true ]; then config_first=false; else echo ","; fi
+                echo "        \"${config_key}\": \"${config_value_escaped}\""
+              fi
+            done
+            echo "      }"
+          fi
+          
+          # Add remote variables for this repo
+          remote_vars=$(grep "^GIT_REPO_${repo_num}_REMOTE_" "{{ git_config_file_path }}" || true)
+          if [ -n "$remote_vars" ]; then
+            echo "      ,\"remotes\": {"
+            remote_first=true
+            echo "$remote_vars" | while read -r remote_line; do
+              if [ -n "$remote_line" ]; then
+                remote_name=$(echo "$remote_line" | sed "s/GIT_REPO_${repo_num}_REMOTE_//g" | sed 's/=.*//g')
+                remote_url=$(echo "$remote_line" | sed 's/.*=//g' | sed 's/^"//g' | sed 's/"$//g')
+                if [ "$remote_first" = true ]; then remote_first=false; else echo ","; fi
+                echo "        \"${remote_name}\": \"${remote_url}\""
+              fi
+            done
+            echo "      }"
+          fi
+          
+          # Add post-clone command
+          post_clone_var="GIT_REPO_${repo_num}_POST_CLONE"
+          post_clone=$(eval echo \$${post_clone_var})
+          if [ -n "$post_clone" ]; then
+            # Escape quotes and special characters for JSON
+            post_clone_escaped=$(echo "$post_clone" | sed 's/"/\\"/g' | sed 's/\\/\\\\/g')
+            echo "      ,\"post_clone\": \"${post_clone_escaped}\""
+          fi
+          
+          echo -n "    }"
+        fi
+      done
+      
+      echo ""
+      echo "  ]"
+      echo "}"
+    else
+      echo '{"repositories": []}'
+    fi
+  register: git_config_result
+  delegate_to: localhost
+  become: false
+  when: use_git_config_file and git_config_file_stat.stat.exists
+  changed_when: false
+  # no_log: true  # Don't log potentially sensitive URLs
+  tags:
+    - git-repos
+    - config-file
+
+- name: Parse Git repository configuration
+  set_fact:
+    git_repo_config: "{{ git_config_result.stdout | from_json if (use_git_config_file and git_config_file_stat.stat.exists and git_config_result.stdout) else {'repositories': []} }}"
+  when: use_git_config_file
+  tags:
+    - git-repos
+    - config-file
+
+- name: Override settings from environment file
+  set_fact:
+    final_git_repos_base_dir: "{{ git_repo_config.git_repos_base_dir | regex_replace('^~', target_user_home) if (git_repo_config.git_repos_base_dir is defined and git_repo_config.git_repos_base_dir) else final_git_repos_base_dir }}"
+    final_git_default_branch: "{{ git_repo_config.git_default_branch if (git_repo_config.git_default_branch is defined and git_repo_config.git_default_branch) else git_default_branch }}"
+    final_git_update_existing: "{{ git_repo_config.git_update_existing | default(git_update_existing) | bool }}"
+    final_git_create_dev_structure: "{{ git_repo_config.git_create_dev_structure | default(git_create_dev_structure) | bool }}"
+    final_git_setup_hooks: "{{ git_repo_config.git_setup_hooks | default(git_setup_hooks) | bool }}"
+  when: use_git_config_file and git_repo_config is defined
+  tags:
+    - git-repos
+    - config-file
+
+# =============================================================================
+# Directory Setup
+# =============================================================================
+- name: Create base repositories directory
+  file:
+    path: "{{ final_git_repos_base_dir }}"
+    state: directory
+    owner: "{{ target_user | default(ansible_user) }}"
+    group: "{{ target_user | default(ansible_user) }}"
+    mode: "{{ git_repos_dir_mode }}"
+  become: true
+  tags:
+    - git-repos
+    - directory-setup
+
+# =============================================================================
+# Git User Configuration
+# =============================================================================
+- name: Configure Git user settings from environment
+  block:
+    - name: Set Git user.name from environment
+      git_config:
+        name: user.name
+        value: "{{ git_repo_config.git_user_name }}"
+        scope: global
+      become_user: "{{ target_user | default(ansible_user) }}"
+      when: git_repo_config.git_user_name is defined and git_repo_config.git_user_name
+
+    - name: Set Git user.email from environment
+      git_config:
+        name: user.email
+        value: "{{ git_repo_config.git_user_email }}"
+        scope: global
+      become_user: "{{ target_user | default(ansible_user) }}"
+      when: git_repo_config.git_user_email is defined and git_repo_config.git_user_email
+
+  when: configure_git_user_from_env and use_git_config_file and git_repo_config is defined
+  tags:
+    - git-repos
+    - git-config
+
+# =============================================================================
+# Repository Processing
+# =============================================================================
+- name: Process Git repositories
+  include_tasks: process_repository.yml
+  vars:
+    repository: "{{ item }}"
+    repo_index: "{{ ansible_loop.index }}"
+  loop: "{{ git_repo_config.repositories if (use_git_config_file and git_repo_config is defined) else [] }}"
+  loop_control:
+    loop_var: item
+    extended: true
+  when: git_repo_config.repositories | length > 0
+  tags:
+    - git-repos
+    - clone
+
+# =============================================================================
+# Validation
+# =============================================================================
+- name: Validate Git repositories
+  block:
+    - name: Check repository status
+      command: git status --porcelain
+      args:
+        chdir: "{{ repo_path }}"
+      register: repo_status
+      become_user: "{{ target_user | default(ansible_user) }}"
+      vars:
+        repo_name: "{{ item.dir if item.dir else (item.url | regex_replace('.*/', '') | regex_replace('\\.git$', '')) }}"
+        repo_path: "{{ final_git_repos_base_dir }}/{{ repo_name }}"
+      loop: "{{ git_repo_config.repositories if (use_git_config_file and git_repo_config is defined) else [] }}"
+      changed_when: false
+      failed_when: false
+      when: validate_git_repos
+
+    - name: Display repository validation results
+      debug:
+        msg:
+          - "=== Git Repository Management Validation ==="
+          - "Base directory: {{ final_git_repos_base_dir }}"
+          - "Repositories managed: {{ git_repo_config.repositories | length if (git_repo_config is defined) else 0 }}"
+          - "Update existing: {{ final_git_update_existing | default(git_update_existing) }}"
+          - "Create dev structure: {{ final_git_create_dev_structure | default(git_create_dev_structure) }}"
+          - "{{ 'Git user: ' + git_repo_config.git_user_name + ' <' + git_repo_config.git_user_email + '>' if (git_repo_config is defined and git_repo_config.git_user_name and git_repo_config.git_user_email) else 'Git user: Not configured' }}"
+      when: validate_git_repos
+
+  when: validate_git_repos and git_repo_config.repositories | length > 0
+  tags:
+    - git-repos
+    - validation
