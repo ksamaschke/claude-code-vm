@@ -1,0 +1,56 @@
+---
+# Default variables for bashrc role
+
+# Enable bashrc integrations
+enable_bashrc_integrations: true
+
+# Docker integrations
+enable_docker_aliases: true
+enable_docker_completions: true
+
+# Kubernetes integrations  
+enable_kubectl_completions: true
+enable_k3s_aliases: true
+enable_kind_aliases: true
+
+# Development aliases
+enable_dev_aliases: true
+
+# Custom aliases and functions
+docker_aliases:
+  - { alias: "dps", command: "docker ps" }
+  - { alias: "dpa", command: "docker ps -a" }
+  - { alias: "di", command: "docker images" }
+  - { alias: "drm", command: "docker rm" }
+  - { alias: "drmi", command: "docker rmi" }
+  - { alias: "dexec", command: "docker exec -it" }
+  - { alias: "dlogs", command: "docker logs -f" }
+  - { alias: "dcp", command: "docker compose" }
+  - { alias: "dcup", command: "docker compose up -d" }
+  - { alias: "dcdown", command: "docker compose down" }
+  - { alias: "dcps", command: "docker compose ps" }
+  - { alias: "dclogs", command: "docker compose logs -f" }
+
+kubernetes_aliases:
+  - { alias: "k", command: "kubectl" }
+  - { alias: "kgp", command: "kubectl get pods" }
+  - { alias: "kgs", command: "kubectl get services" }
+  - { alias: "kgd", command: "kubectl get deployments" }
+  - { alias: "kdesc", command: "kubectl describe" }
+  - { alias: "klogs", command: "kubectl logs -f" }
+  - { alias: "kexec", command: "kubectl exec -it" }
+  - { alias: "kapply", command: "kubectl apply -f" }
+  - { alias: "kdelete", command: "kubectl delete" }
+
+dev_aliases:
+  - { alias: "ll", command: "ls -alF" }
+  - { alias: "la", command: "ls -A" }
+  - { alias: "l", command: "ls -CF" }
+  - { alias: "grep", command: "grep --color=auto" }
+  - { alias: "fgrep", command: "fgrep --color=auto" }
+  - { alias: "egrep", command: "egrep --color=auto" }
+  - { alias: "...", command: "cd ../.." }
+  - { alias: "....", command: "cd ../../.." }
+
+# Custom functions
+enable_custom_functions: true

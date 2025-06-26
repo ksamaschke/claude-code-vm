@@ -1,0 +1,112 @@
+---
+# Git Repository Management Role Defaults
+
+# =============================================================================
+# Environment Configuration
+# =============================================================================
+# Environment file for repository configuration (fallback if not provided)
+git_config_file_path: "{{ custom_git_config_file | default(env_file_path) }}"
+
+# Whether to use the environment file for repository configuration
+use_git_config_file: true
+
+# Base directory for all repositories (can be overridden)
+git_repos_base_dir: "~/projects"
+
+# =============================================================================
+# Repository Management Settings
+# =============================================================================
+# Update existing repositories on subsequent runs
+git_update_existing: true
+
+# Create standard development directory structure in repositories
+git_create_dev_structure: true
+
+# Set up Git hooks directory
+git_setup_hooks: false
+
+# Skip repositories that already exist (when git_update_existing is false)
+git_skip_existing: false
+
+# =============================================================================
+# Clone Settings
+# =============================================================================
+# Default branch to checkout (empty = use repository default)
+git_default_branch: ""
+
+# Default clone depth (empty = full clone)
+git_default_depth: ""
+
+# Clone timeout in seconds
+git_clone_timeout: 300
+
+# =============================================================================
+# Git Configuration Settings  
+# =============================================================================
+# Configure Git user settings from environment
+configure_git_user_from_env: true
+
+# Users to configure Git repositories for
+configure_git_repos_for_users: 
+  - "{{ target_vm_user | default(ansible_user) }}"
+
+# =============================================================================
+# Directory and Permission Settings
+# =============================================================================
+# Directory permissions for created directories
+git_repos_dir_mode: '0755'
+
+# File permissions for cloned repository files
+git_repos_file_mode: '0644'
+
+# =============================================================================
+# Development Structure Settings
+# =============================================================================
+# Standard directories to create in each repository (if git_create_dev_structure is true)
+git_dev_directories:
+  - docs
+  - tests
+  - scripts
+  - config
+
+# =============================================================================
+# Validation Settings
+# =============================================================================
+# Validate repositories after cloning/updating
+validate_git_repos: true
+
+# Show detailed repository information during validation
+git_repos_show_details: true
+
+# =============================================================================
+# Error Handling
+# =============================================================================
+# Continue with other repositories if one fails
+git_repos_continue_on_error: true
+
+# Maximum number of retries for failed clone operations
+git_repos_max_retries: 3
+
+# Delay between retries (seconds)
+git_repos_retry_delay: 5
+
+# =============================================================================
+# Security Settings
+# =============================================================================
+# Sanitize URLs in log output (hide credentials)
+git_repos_sanitize_logs: true
+
+# Use SSH for clones when possible (requires SSH key setup)
+git_repos_prefer_ssh: false
+
+# =============================================================================
+# Advanced Settings
+# =============================================================================
+# Clean up incomplete/failed clones
+git_repos_cleanup_failures: true
+
+# Create symlinks to common development tools
+git_repos_create_symlinks: false
+
+# Install repository-specific dependencies (if post-clone commands are defined)
+git_repos_run_post_clone: true

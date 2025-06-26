@@ -1,0 +1,227 @@
+---
+# Process individual Git repository - Clone, configure, and manage
+
+- name: Set repository variables
+  set_fact:
+    repo_name: "{{ repository.dir if repository.dir else (repository.url | regex_replace('.*/', '') | regex_replace('\\.git$', '')) }}"
+    repo_path: "{{ final_git_repos_base_dir }}/{{ repository.dir if repository.dir else (repository.url | regex_replace('.*/', '') | regex_replace('\\.git$', '')) }}"
+    repo_branch: "{{ repository.branch if repository.branch else final_git_default_branch }}"
+    repo_depth: "{{ repository.depth if repository.depth else git_default_depth }}"
+    sanitized_url: "{{ repository.url | regex_replace('://[^@]+@', '://***:***@') if git_repos_sanitize_logs else repository.url }}"
+  tags:
+    - git-repos
+    - clone
+
+- name: Check if repository already exists
+  stat:
+    path: "{{ repo_path }}/.git"
+  register: repo_exists
+  tags:
+    - git-repos
+    - clone
+
+- name: Display repository processing info
+  debug:
+    msg:
+      - "Processing repository {{ repo_index }}/{{ git_repo_config.repositories | length }}: {{ repo_name }}"
+      - "URL: {{ sanitized_url }}"
+      - "Path: {{ repo_path }}"
+      - "Branch: {{ repo_branch if repo_branch else 'default' }}"
+      - "Status: {{ 'exists' if repo_exists.stat.exists else 'new' }}"
+  when: git_repos_show_details
+  tags:
+    - git-repos
+    - clone
+
+# =============================================================================
+# Repository Cloning
+# =============================================================================
+- name: Clone repository (new repository)
+  git:
+    repo: "{{ repository.url }}"
+    dest: "{{ repo_path }}"
+    version: "{{ repo_branch if repo_branch else 'HEAD' }}"
+    depth: "{{ repo_depth | int if repo_depth and repo_depth | int > 0 else omit }}"
+    force: false
+    update: false
+  become_user: "{{ target_user | default(ansible_user) }}"
+  register: git_clone_result
+  when: not repo_exists.stat.exists
+  retries: "{{ git_repos_max_retries }}"
+  delay: "{{ git_repos_retry_delay }}"
+  tags:
+    - git-repos
+    - clone
+
+- name: Update existing repository
+  git:
+    repo: "{{ repository.url }}"
+    dest: "{{ repo_path }}"
+    version: "{{ repo_branch if repo_branch else 'HEAD' }}"
+    force: false
+    update: true
+  become_user: "{{ target_user | default(ansible_user) }}"
+  register: git_update_result
+  when: repo_exists.stat.exists and final_git_update_existing
+  retries: "{{ git_repos_max_retries }}"
+  delay: "{{ git_repos_retry_delay }}"
+  tags:
+    - git-repos
+    - update
+
+- name: Set repository ownership
+  file:
+    path: "{{ repo_path }}"
+    owner: "{{ target_user | default(ansible_user) }}"
+    group: "{{ target_user | default(ansible_user) }}"
+    recurse: true
+  become: true
+  when: git_clone_result is changed or git_update_result is changed
+  tags:
+    - git-repos
+    - permissions
+
+# =============================================================================
+# Repository Configuration
+# =============================================================================
+- name: Configure repository-specific Git settings
+  git_config:
+    name: "{{ config_item.key }}"
+    value: "{{ config_item.value }}"
+    scope: local
+    repo: "{{ repo_path }}"
+  become_user: "{{ target_user | default(ansible_user) }}"
+  vars:
+    config_item: "{{ item }}"
+  loop: "{{ repository.config | dict2items if repository.config is defined else [] }}"
+  when: repository.config is defined
+  tags:
+    - git-repos
+    - git-config
+
+- name: Add additional remotes
+  git_config:
+    name: "remote.{{ remote_item.key }}.url"
+    value: "{{ remote_item.value }}"
+    scope: local
+    repo: "{{ repo_path }}"
+  become_user: "{{ target_user | default(ansible_user) }}"
+  vars:
+    remote_item: "{{ item }}"
+  loop: "{{ repository.remotes | dict2items if repository.remotes is defined else [] }}"
+  when: repository.remotes is defined
+  tags:
+    - git-repos
+    - git-remotes
+
+# =============================================================================
+# Development Structure Creation
+# =============================================================================
+- name: Create development directory structure
+  file:
+    path: "{{ repo_path }}/{{ dev_dir }}"
+    state: directory
+    owner: "{{ target_user | default(ansible_user) }}"
+    group: "{{ target_user | default(ansible_user) }}"
+    mode: "{{ git_repos_dir_mode }}"
+  become: true
+  loop: "{{ git_dev_directories }}"
+  loop_control:
+    loop_var: dev_dir
+  when: 
+    - final_git_create_dev_structure
+    - git_clone_result is changed or not repo_exists.stat.exists
+  tags:
+    - git-repos
+    - dev-structure
+
+- name: Create .githooks directory
+  file:
+    path: "{{ repo_path }}/.githooks"
+    state: directory
+    owner: "{{ target_user | default(ansible_user) }}"
+    group: "{{ target_user | default(ansible_user) }}"
+    mode: "{{ git_repos_dir_mode }}"
+  become: true
+  when: 
+    - final_git_setup_hooks
+    - git_clone_result is changed or not repo_exists.stat.exists
+  tags:
+    - git-repos
+    - git-hooks
+
+- name: Configure Git to use .githooks directory
+  git_config:
+    name: core.hooksPath
+    value: ".githooks"
+    scope: local
+    repo: "{{ repo_path }}"
+  become_user: "{{ target_user | default(ansible_user) }}"
+  when: 
+    - final_git_setup_hooks
+    - git_clone_result is changed or not repo_exists.stat.exists
+  tags:
+    - git-repos
+    - git-hooks
+
+# =============================================================================
+# Post-Clone Commands
+# =============================================================================
+- name: Execute post-clone commands
+  shell: "{{ repository.post_clone }}"
+  args:
+    chdir: "{{ repo_path }}"
+  become_user: "{{ target_user | default(ansible_user) }}"
+  register: post_clone_result
+  when: 
+    - git_repos_run_post_clone
+    - repository.post_clone is defined
+    - repository.post_clone
+    - git_clone_result is changed or (final_git_update_existing and git_update_result is changed)
+  tags:
+    - git-repos
+    - post-clone
+
+- name: Display post-clone command results
+  debug:
+    msg:
+      - "Post-clone command executed for {{ repo_name }}"
+      - "Command: {{ repository.post_clone }}"
+      - "Exit code: {{ post_clone_result.rc }}"
+      - "Output: {{ post_clone_result.stdout }}"
+  when: 
+    - post_clone_result is defined
+    - git_repos_show_details
+  tags:
+    - git-repos
+    - post-clone
+
+# =============================================================================
+# Error Handling and Cleanup
+# =============================================================================
+- name: Clean up failed clone attempts
+  file:
+    path: "{{ repo_path }}"
+    state: absent
+  become: true
+  when: 
+    - git_repos_cleanup_failures
+    - git_clone_result is failed
+  tags:
+    - git-repos
+    - cleanup
+
+- name: Repository processing summary
+  debug:
+    msg:
+      - "Repository {{ repo_name }} processing completed"
+      - "Action: {{ 'cloned' if git_clone_result is changed else 'updated' if (git_update_result is defined and git_update_result is changed) else 'skipped' }}"
+      - "Path: {{ repo_path }}"
+      - "Branch: {{ repo_branch if repo_branch else 'default' }}"
+      - "Dev structure: {{ 'created' if final_git_create_dev_structure else 'skipped' }}"
+      - "Hooks setup: {{ 'enabled' if final_git_setup_hooks else 'disabled' }}"
+      - "Post-clone: {{ 'executed' if (repository.post_clone is defined and post_clone_result is defined) else 'none' }}"
+  when: git_repos_show_details
+  tags:
+    - git-repos
+    - summary

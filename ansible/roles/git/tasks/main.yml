@@ -28,20 +28,20 @@
 # Environment file handling with URL-based PAT discovery
 - name: Check for .env file
   stat:
-    path: "{{ env_file_path }}"
+    path: "{{ custom_git_config_file | default(env_file_path) }}"
   register: env_file_stat
   delegate_to: localhost
   become: false
-  when: use_env_file
+  when: use_env_file or custom_git_config_file is defined
   tags:
     - git
     - env-file
 
 - name: Discover Git servers from .env file
   shell: |
-    if [ -f "{{ env_file_path }}" ]; then
+    if [ -f "{{ custom_git_config_file | default(env_file_path) }}" ]; then
       # Load environment variables
-      export $(grep -v '^#' "{{ env_file_path }}" | grep -v '^$' | xargs)
+      export $(grep -v '^#' "{{ custom_git_config_file | default(env_file_path) }}" | grep -v '^$' | xargs)
       
       # Build JSON output
       echo "{"
@@ -113,7 +113,7 @@
   register: env_vars_result
   delegate_to: localhost
   become: false
-  when: use_env_file and env_file_stat.stat.exists
+  when: (use_env_file or custom_git_config_file is defined) and env_file_stat.stat.exists
   changed_when: false
   no_log: true  # Don't log PATs
   tags:

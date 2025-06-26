@@ -1,0 +1,121 @@
+---
+# uvx role tasks - Install uv and uvx Python package runner
+
+- name: Get target user information
+  getent:
+    database: passwd
+    key: "{{ target_user }}"
+  register: user_info
+  tags:
+    - uvx
+
+- name: Set target user home directory
+  set_fact:
+    target_user_home: "{{ user_info.ansible_facts.getent_passwd[target_user][4] }}"
+  tags:
+    - uvx
+
+- name: Check if uv/uvx is already installed
+  command: uvx --version
+  register: uvx_version_check
+  failed_when: false
+  changed_when: false
+  tags:
+    - uvx
+    - check
+
+- name: Set uvx installation facts
+  set_fact:
+    uvx_installed: "{{ uvx_version_check.rc == 0 }}"
+    uvx_current_version: "{{ uvx_version_check.stdout | default('none') }}"
+  tags:
+    - uvx
+
+- name: Install prerequisites for uv/uvx
+  apt:
+    name:
+      - curl
+      - ca-certificates
+    state: present
+    update_cache: true
+  when: not uvx_installed and uvx_install_method == "curl"
+  tags:
+    - uvx
+    - prerequisites
+
+- name: Download and install uv (includes uvx)
+  shell: |
+    curl -LsSf {{ uv_install_url }} | sh
+    # Move binaries to /usr/local/bin for system-wide access
+    if [ -f "/root/.local/bin/uv" ]; then
+      cp /root/.local/bin/uv /usr/local/bin/uv
+      cp /root/.local/bin/uvx /usr/local/bin/uvx
+      chmod +x /usr/local/bin/uv /usr/local/bin/uvx
+    fi
+  when: not uvx_installed and uvx_install_method == "curl"
+  become: true
+  register: uv_install_result
+  tags:
+    - uvx
+    - install
+
+- name: Display uv installation result
+  debug:
+    var: uv_install_result
+  when: not uvx_installed
+  tags:
+    - uvx
+    - install
+
+- name: Verify uv installation
+  command: uv --version
+  register: uv_version_check
+  changed_when: false
+  when: not uvx_installed
+  environment:
+    PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
+  tags:
+    - uvx
+    - verification
+
+- name: Verify uvx is available (uvx is included with uv)
+  command: uvx --version
+  register: uvx_version_check_final
+  changed_when: false
+  when: not uvx_installed
+  environment:
+    PATH: "/usr/local/bin:{{ ansible_env.PATH }}"
+  tags:
+    - uvx
+    - verification
+
+- name: Validate uvx installation
+  block:
+    - name: Check uvx version
+      command: uvx --version
+      register: uvx_final_check
+      changed_when: false
+      environment:
+        PATH: "/root/.cargo/bin:/usr/local/bin:{{ ansible_env.PATH }}"
+
+    - name: Display uvx version
+      debug:
+        msg: "uvx: {{ uvx_final_check.stdout }}"
+
+    - name: Test uvx functionality
+      command: uvx --help
+      register: uvx_help_test
+      changed_when: false
+      environment:
+        PATH: "/root/.cargo/bin:/usr/local/bin:{{ ansible_env.PATH }}"
+      when: test_uvx_command
+
+    - name: Log uvx test result
+      debug:
+        msg: "uvx help command successful"
+      when: test_uvx_command and uvx_help_test.rc == 0
+
+  when: validate_uvx_installation
+  tags:
+    - uvx
+    - validation

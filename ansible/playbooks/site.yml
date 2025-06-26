@@ -28,6 +28,35 @@
           - "Target User: {{ target_user }}"
       tags: always
 
+    - name: Resolve Docker Compose version if set to latest
+      block:
+        - name: Get latest Docker Compose version from GitHub API
+          uri:
+            url: https://api.github.com/repos/docker/compose/releases/latest
+            method: GET
+            return_content: true
+            status_code: 200
+            timeout: 30
+          register: docker_compose_latest_api
+          delegate_to: localhost
+          become: false
+
+        - name: Set resolved Docker Compose version
+          set_fact:
+            docker_compose_version: "{{ docker_compose_latest_api.json.tag_name }}"
+            docker_compose_url: "https://github.com/docker/compose/releases/download/{{ docker_compose_latest_api.json.tag_name }}/docker-compose-linux-{{ ansible_architecture }}"
+
+        - name: Display resolved Docker Compose version
+          debug:
+            msg: "Resolved Docker Compose version: {{ docker_compose_version }}"
+      when: 
+        - install_docker | default(false) | bool
+        - docker_compose_version is defined 
+        - docker_compose_version == "latest"
+      tags: 
+        - always
+        - docker
+
     - name: Verify SSH connectivity and sudo access
       ping:
       tags: always
@@ -53,6 +82,14 @@
         - credentials
         - version-control
 
+    - role: git-repos
+      when: manage_git_repositories | default(false) | bool
+      tags:
+        - git-repos
+        - repositories
+        - clone
+        - git-management
+
     - role: geerlingguy.docker
       when: install_docker | default(false) | bool
       tags:
@@ -68,6 +105,13 @@
         - javascript
       vars:
         npm_global_packages: "{{ nodejs_npm_global_packages | default([]) }}"
+
+    - role: uvx
+      tags:
+        - uvx
+        - python
+        - package-manager
+        - baseline
 
     # Claude Code is installed via npm in the nodejs role
     # The claude-code role reference can be removed or used for additional configuration
@@ -88,6 +132,21 @@
         - model-context-protocol
         - claude-code-mcp
         - ai
+
+    - role: git-repos
+      when: manage_git_repositories | default(false) | bool
+      tags:
+        - git-repos
+        - repositories
+        - clone
+
+    - role: bashrc
+      when: enable_bashrc_integrations | default(false) | bool
+      tags:
+        - bashrc
+        - shell
+        - integrations
+        - aliases
 
   post_tasks:
     - name: Ensure /tmp permissions are correct after all installations

@@ -1,0 +1,26 @@
+---
+# Git Repository Management Handlers
+
+- name: update git repository permissions
+  file:
+    path: "{{ item }}"
+    owner: "{{ target_user | default(ansible_user) }}"
+    group: "{{ target_user | default(ansible_user) }}"
+    recurse: true
+  become: true
+  listen: "fix repository permissions"
+
+- name: validate repository integrity
+  command: git fsck --quiet
+  args:
+    chdir: "{{ item }}"
+  become_user: "{{ target_user | default(ansible_user) }}"
+  listen: "validate git repository"
+
+- name: refresh repository status
+  command: git status --porcelain
+  args:
+    chdir: "{{ item }}"
+  become_user: "{{ target_user | default(ansible_user) }}"
+  register: repo_status_refresh
+  listen: "refresh git status"

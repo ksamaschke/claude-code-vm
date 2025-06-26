@@ -1,0 +1,25 @@
+---
+galaxy_info:
+  role_name: uvx
+  author: Claude Code VM
+  description: Install uv and uvx (Universal eXecutable runner) for Python packages
+  license: MIT
+  min_ansible_version: "2.9"
+  platforms:
+    - name: Debian
+      versions:
+        - bullseye
+        - bookworm
+    - name: Ubuntu
+      versions:
+        - "20.04"
+        - "22.04"
+        - "24.04"
+  galaxy_tags:
+    - python
+    - package-manager
+    - uv
+    - uvx
+    - development
+
+dependencies: []

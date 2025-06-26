@@ -1,8 +1,8 @@
 # Claude Code VM
 
-**Automated deployment system for Claude Code development environments on Debian VMs**
+**Automated 4-tier deployment system for Claude Code development environments on Debian VMs**
 
-Deploy a complete AI-enabled development environment with Claude Code CLI, Docker, Node.js, Git, and MCP servers in minutes.
+Deploy a complete AI-enabled development environment with Claude Code CLI, Docker, Node.js, Git, Kubernetes, and MCP servers using a flexible 4-tier architecture that scales from minimal to full-featured.
 
 ## 🚀 Quick Start
 
@@ -12,149 +12,263 @@ git clone https://github.com/ksamaschke/claude-code-vm.git
 cd claude-code-vm
 make setup
 
-# OPTIONAL: Configure automated Git setup
-nano .env  # Add your Git credentials for automated setup
+# Configure your environment (optional but recommended)
+nano .env  # Add Git credentials and MCP API keys
 
-# Deploy to your VM
-make deploy VM_HOST=192.168.1.100 TARGET_USER=developer
+# Choose your deployment tier
+make deploy-baseline VM_HOST=192.168.1.100 TARGET_USER=developer      # Minimal
+make deploy-enhanced VM_HOST=192.168.1.100 TARGET_USER=developer       # + MCPs + Docker
+make deploy-containerized VM_HOST=192.168.1.100 TARGET_USER=developer  # + Docker Compose + shell
+make deploy-full VM_HOST=192.168.1.100 TARGET_USER=developer           # + Kubernetes + everything
 ```
 
-## ✨ What You Get
+## 🏗️ 4-Tier Deployment Architecture
 
-- **🤖 Claude Code CLI** - Ready to use with MCP server integration and subagent support
-- **📝 Automated CLAUDE.md Generation** - Environment-specific guidance with subagent documentation
-- **🐳 Docker & Docker Compose** - Complete container development environment
-- **📦 Node.js 22 LTS** - Latest LTS with global package support and PATH configuration
-- **🔐 Git Multi-Provider Support** - GitHub, GitLab, Azure DevOps, Bitbucket, custom Git servers
-- **☸️ Kubernetes Options** - k3s (default) or KIND (optional) with kubectl, kompose, and optional NGINX Ingress
-- **🧠 MCP Servers** - Optional AI extensions (search, memory, document processing) with API key setup
-- **📺 Persistent Sessions** - Screen-based terminal sessions that survive disconnects
+### Tier 1: Baseline (`deploy-baseline`)
+**Minimal core development environment**
+- ✅ **Git** with multi-provider credential management (GitHub, GitLab, Azure DevOps, custom)
+- ✅ **Node.js 22 LTS** with npm global configuration and PATH setup
+- ✅ **Claude Code CLI** installed globally and ready to use
+- ✅ **uvx** for isolated Python package execution
+- ✅ **Git repository management** (optional) - automatic cloning with branch selection
 
-## 📋 Requirements
+### Tier 2: Enhanced (`deploy-enhanced`)
+**Baseline + AI capabilities + containerization**
+- ✅ **Everything from Tier 1**
+- ✅ **MCP servers** configured with environment variables for AI extensions
+- ✅ **Docker** with user group integration (passwordless container management)
+- ✅ **Docker group setup** (needed for many MCP servers that use containers)
 
-- **Target VM**: Debian 12+ with SSH access and sudo privileges
-- **Local Machine**: Ansible installed
-- **Optional**: Git Personal Access Tokens for automated Git credential setup
+### Tier 3: Containerized (`deploy-containerized`)
+**Enhanced + orchestration + productivity**
+- ✅ **Everything from Tier 2**
+- ✅ **Docker Compose** with latest version auto-resolution
+- ✅ **Enhanced bashrc** with Docker aliases and shortcuts
+- ✅ **Shell integrations**: `dps`, `dcp`, `dcup`, `dcdown`, `dexec`, `dlogs` aliases
+- ✅ **Productivity enhancements** for container development
+
+### Tier 4: Full (`deploy-full`)
+**Everything + Kubernetes + comprehensive tooling**
+- ✅ **Everything from Tier 3**
+- ✅ **Kubernetes tools**: kubectl, helm, kompose with bash completions
+- ✅ **k3s cluster** (default) or **KIND** (alternative) - choose your Kubernetes backend
+- ✅ **NGINX Ingress Controller** for production-ready ingress
+- ✅ **Comprehensive bashrc**: Kubernetes aliases (`k`, `kgp`, `kgs`, `kdesc`, etc.)
+- ✅ **Advanced functions**: `kctx`, `kns`, `drun`, `cdls`, `ff`
+- ✅ **User CLAUDE.md** with environment-specific guidance
+
+## ⚙️ Configuration Options
+
+### Kubernetes Backend Selection
+```bash
+# Use k3s (default - production-ready, lightweight)
+make deploy-full VM_HOST=192.168.1.100 TARGET_USER=dev KUBERNETES_BACKEND=k3s
+
+# Use KIND (development-focused, runs in Docker)
+make deploy-full VM_HOST=192.168.1.100 TARGET_USER=dev KUBERNETES_BACKEND=kind
+```
+
+### Git Repository Management
+```bash
+# Enable automatic repository cloning
+make deploy-enhanced VM_HOST=192.168.1.100 TARGET_USER=dev MANAGE_GIT_REPOSITORIES=true
+
+# Use separate Git configuration file
+make deploy-enhanced VM_HOST=192.168.1.100 TARGET_USER=dev GIT_CONFIG_FILE=.git-repos.env
+```
+
+### Environment Files
+```bash
+# Use custom environment file
+make deploy-enhanced VM_HOST=192.168.1.100 TARGET_USER=dev ENV_FILE=production.env
+
+# Use custom MCP configuration
+make deploy-enhanced VM_HOST=192.168.1.100 TARGET_USER=dev MCP_FILE=custom-mcp.json
+```
 
 ## 🛠️ Essential Commands
 
 ```bash
-make help              # Show comprehensive help and usage examples
-make setup             # Initialize environment files (.env, mcp-servers.json)
-make deploy            # Deploy complete development stack (all components)
-make deploy-base       # Deploy base system only (Git, Node.js, Claude Code, MCP)
-make validate          # Verify all deployed components are working
-make deploy-mcp        # Deploy MCP servers only (after initial deployment)
-make clean             # Clean up temporary files
+# Setup and validation
+make help                    # Show comprehensive help with all deployment options
+make setup                   # Initialize environment files (.env, mcp-servers.json)
+make check-config            # Validate configuration before deployment
+make test-connection         # Test SSH connectivity to target VM
+make validate               # Verify all deployed components are working
+make clean                  # Clean up temporary files and logs
+
+# 4-tier deployments
+make deploy-baseline        # Tier 1: Git + Node.js + Claude Code + uvx
+make deploy-enhanced        # Tier 2: Baseline + MCPs + Docker
+make deploy-containerized   # Tier 3: Enhanced + Docker Compose + bashrc
+make deploy-full           # Tier 4: Everything + Kubernetes + comprehensive tooling
+
+# Legacy aliases (backward compatibility)
+make deploy-base           # Alias for deploy-enhanced
+make deploy                # Alias for deploy-full
+
+# MCP management
+make setup-mcp-tool        # Setup local MCP management tools
+make generate-mcp-config   # Generate MCP server configuration
+make deploy-mcp           # Deploy MCP servers to target VM
 ```
 
-**Required for all deployments:**
-- `VM_HOST` - Target VM IP address 
-- `TARGET_USER` - Username on the target VM
+## 💡 Smart Features
 
-## 🎯 Common Usage Patterns
+### 🤖 AI-Enhanced Development
+- **Claude Code CLI** with MCP server integration for enhanced AI capabilities
+- **MCP servers** for search (Brave), memory, document processing, GitHub/GitLab integration
+- **Environment-aware CLAUDE.md** generation on target VM with deployment-specific guidance
+- **uvx integration** for running AI tools and Python packages in isolation
 
-### Complete First-Time Setup
-```bash
-make setup                                          # Initialize project
-nano .env                                          # Add Git credentials (optional)
-make deploy VM_HOST=192.168.1.100 TARGET_USER=dev  # Deploy everything
-make validate VM_HOST=192.168.1.100 TARGET_USER=dev # Verify deployment
-```
+### 🐳 Container & Orchestration Intelligence
+- **Dynamic Docker Compose version resolution** - always gets the latest stable version
+- **Smart Kubernetes backend selection** - k3s for production, KIND for development
+- **Automatic ingress configuration** - NGINX Ingress with k3s, built-in with KIND
+- **User group management** - passwordless Docker and proper permissions
 
-### Deploy Individual Components
-```bash
-# Use Ansible directly with tags for component-specific deployment
-ansible-playbook ansible/playbooks/site.yml --tags git
-ansible-playbook ansible/playbooks/site.yml --tags docker,nodejs
-ansible-playbook ansible/playbooks/site.yml --tags kubernetes,mcp
-
-# Available tags: common, git, docker, nodejs, claude-code, kubernetes, mcp
-```
-
-### MCP Server Management
-```bash
-make setup-mcp-tool                                 # Setup local MCP management
-make generate-mcp-config                           # Generate MCP configuration
-make deploy-mcp VM_HOST=192.168.1.100 TARGET_USER=dev # Deploy MCP servers
-```
-
-## 🔧 Authentication Options
-
-```bash
-# Use specific SSH key
-make deploy VM_HOST=192.168.1.100 TARGET_USER=dev TARGET_SSH_KEY=~/.ssh/custom_key
-
-# Use password authentication
-make deploy VM_HOST=192.168.1.100 TARGET_USER=dev USE_SSH_PASSWORD=true SSH_PASSWORD=mypass
-
-# Custom environment files
-make deploy VM_HOST=192.168.1.100 TARGET_USER=dev ENV_FILE=production.env
-```
-
-## 🌟 Key Features
-
-### AI-Enhanced Development
-- **Claude Code CLI** with MCP server integration
-- **CLAUDE.md generation** with environment-specific configuration and subagent documentation
-- **MCP servers** for search, memory, document processing (optional, requires API keys)
-
-### Container & Orchestration
-- **k3s**: Lightweight Kubernetes (default, optional)
-- **KIND**: Kubernetes in Docker (optional alternative)
-- **NGINX Ingress**: Optional ingress controller (preselected, disables Traefik)
-- **Docker**: Standard Docker and Docker Compose installation
-
-### Git Multi-Provider Support
-- **Multiple Git servers** with environment variable-based credential management
-- **Supports**: GitHub, GitLab, Azure DevOps, Bitbucket, custom Git servers
+### 📁 Git Multi-Provider Excellence
+- **Universal Git credential management** - GitHub, GitLab, Azure DevOps, Bitbucket, custom servers
+- **Pattern-based configuration**: `GIT_{NAME}_{FIELD}` for unlimited Git server support
+- **Automated repository management** with branch selection and post-clone commands
 - **SSH key generation** and global Git configuration
 
-### Deployment Features
-- **Package manager conflict detection** and graceful handling
-- **Deployment validation** with component status reporting
-- **Screen session management** for persistent terminal sessions
-- **Configurable authentication** (SSH keys, passwords)
+### 🚀 Shell Productivity Enhancements
+- **Docker aliases**: `dps`, `dpa`, `di`, `drm`, `dexec`, `dlogs`, `dcp`, `dcup`, `dcdown`, `dcps`, `dclogs`
+- **Kubernetes aliases**: `k`, `kgp`, `kgs`, `kgd`, `kdesc`, `klogs`, `kexec`, `kapply`, `kdelete`
+- **Custom functions**: 
+  - `drun <image>` - Quick container execution
+  - `kctx [context]` - Kubernetes context switching
+  - `kns [namespace]` - Namespace switching
+  - `cdls <dir>` - Change directory and list
+  - `ff <pattern>` - Fast file find
+- **Auto-completions** for kubectl, Docker, and all major tools
 
-## 🎯 Deployment Options
+## 🎯 Use Cases & Examples
 
-### Base Deployment (`make deploy-base`)
-Includes essential components only:
-- **Git** with credential management
-- **Node.js 22 LTS** with npm
-- **Claude Code CLI** 
-- **MCP server configuration**
-
-### Full Deployment (`make deploy`)
-Includes everything from base deployment plus:
-- **Docker** and Docker Compose
-- **Kubernetes tools** (kubectl, k3s/KIND, kompose)
-- **Container orchestration** capabilities
-
-Choose the deployment that matches your needs. The base deployment is perfect for 
-development environments that don't require containerization.
-
-## 🔍 Quick Troubleshooting
-
+### Development Team Setup
 ```bash
-# Test connectivity
+# Containerized development environment with Git automation
+make deploy-containerized VM_HOST=192.168.1.100 TARGET_USER=developer \
+  MANAGE_GIT_REPOSITORIES=true GIT_CONFIG_FILE=team-repos.env
+```
+
+### AI/ML Development
+```bash
+# Full environment with uvx for Python tools and Kubernetes for ML workloads
+make deploy-full VM_HOST=192.168.1.100 TARGET_USER=datascientist \
+  KUBERNETES_BACKEND=k3s
+```
+
+### Microservices Development
+```bash
+# KIND for local Kubernetes development with Docker Compose fallback
+make deploy-full VM_HOST=192.168.1.100 TARGET_USER=developer \
+  KUBERNETES_BACKEND=kind
+```
+
+### Minimal CI/CD Agent
+```bash
+# Baseline environment for lightweight build agents
+make deploy-baseline VM_HOST=192.168.1.100 TARGET_USER=ci-agent
+```
+
+## 🔧 Advanced Configuration
+
+### Authentication Options
+```bash
+# SSH key authentication
+make deploy-enhanced VM_HOST=192.168.1.100 TARGET_USER=dev \
+  TARGET_SSH_KEY=~/.ssh/custom_key
+
+# Password authentication
+make deploy-enhanced VM_HOST=192.168.1.100 TARGET_USER=dev \
+  USE_SSH_PASSWORD=true SSH_PASSWORD=secure_password
+
+# Sudo password required
+make deploy-enhanced VM_HOST=192.168.1.100 TARGET_USER=dev \
+  USE_BECOME_PASSWORD=true BECOME_PASSWORD=sudo_password
+```
+
+### Component-Specific Deployment
+```bash
+# Deploy specific components using Ansible directly
+ansible-playbook ansible/playbooks/site.yml --tags git,git-repos
+ansible-playbook ansible/playbooks/site.yml --tags docker -e install_docker=true
+ansible-playbook ansible/playbooks/site.yml --tags kubernetes -e install_kubectl=true
+ansible-playbook ansible/playbooks/site.yml --tags bashrc -e enable_bashrc_integrations=true
+ansible-playbook ansible/playbooks/site.yml --tags uvx
+```
+
+## 📋 Requirements
+
+- **Target VM**: Debian 12+ (Bookworm) with SSH access and sudo privileges
+- **Local Machine**: Ansible 2.9+ installed
+- **Network**: SSH connectivity between local machine and target VM
+- **Optional**: Git Personal Access Tokens for automated credential setup
+- **Optional**: MCP API keys (Brave Search, GitHub, GitLab) for AI enhancements
+
+## 🔍 Troubleshooting
+
+### Connection Issues
+```bash
+# Test basic connectivity
 make test-connection VM_HOST=192.168.1.100 TARGET_USER=dev
 
 # Check configuration
 make check-config
 
-# Manual SSH test
-ssh dev@192.168.1.100
+# Manual verification
+ssh dev@192.168.1.100 'docker --version && kubectl version --client && node --version'
+```
+
+### Deployment Issues
+```bash
+# Verbose deployment for debugging
+ansible-playbook ansible/playbooks/site.yml -vvv
+
+# Check specific component
+ansible-playbook ansible/playbooks/site.yml --tags docker --check --diff
+
+# Validate after deployment
+make validate VM_HOST=192.168.1.100 TARGET_USER=dev
+```
+
+### Post-Deployment
+```bash
+# On target VM, update shell environment
+source ~/.bashrc
+
+# Verify installations
+docker --version
+kubectl version --client
+claude --version
+uvx --version
 ```
 
 ## 📚 Documentation
 
-For detailed configuration, troubleshooting, and advanced usage:
+- **[CLAUDE.md](CLAUDE.md)** - Complete deployment reference and architecture
+- **[Ansible Configuration](docs/ansible-configuration.md)** - Variables and role documentation
+- **[MCP Server Setup](docs/components-mcp.md)** - AI extensions and API configuration
+- **[Git Configuration](docs/git-configuration.md)** - Multi-provider Git setup
+- **[Authentication Guide](docs/authentication.md)** - SSH keys, passwords, security
 
-- **[Ansible Configuration Reference](docs/ansible-configuration.md)** - Complete variable and role documentation
-- **[MCP Server Setup](docs/components-mcp.md)** - AI extensions and API key configuration
-- **[Troubleshooting Guide](docs/troubleshooting.md)** - Common issues and solutions
-- **[Authentication Guide](docs/authentication.md)** - SSH keys, passwords, security setup
+## 🔄 Migration & Compatibility
+
+### Legacy Command Support
+The new 4-tier system maintains backward compatibility:
+- `make deploy-base` → `make deploy-enhanced` (legacy alias)
+- `make deploy` → `make deploy-full` (legacy alias)
+
+### Upgrading Existing Deployments
+```bash
+# From old deploy-base to new enhanced
+make deploy-enhanced VM_HOST=192.168.1.100 TARGET_USER=dev
+
+# From old deploy to new full with k3s
+make deploy-full VM_HOST=192.168.1.100 TARGET_USER=dev KUBERNETES_BACKEND=k3s
+```
 
 ## 📄 License
 
@@ -162,4 +276,6 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ---
 
-**Need help?** Check the [documentation](docs/) or [open an issue](../../issues).
+**Ready to deploy?** Start with `make setup` and choose your tier! 🚀
+
+**Need help?** Check the [documentation](docs/) or [open an issue](../../issues) for support.

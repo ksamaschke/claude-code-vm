@@ -42,6 +42,10 @@ TARGET_USER ?=
 SESSION_NAME ?= DEV
 DEPLOYMENT_DIR ?= /home/$(TARGET_USER)/.claude-code-vm
 
+# Deployment tier settings (optional)
+KUBERNETES_BACKEND ?= k3s
+MANAGE_GIT_REPOSITORIES ?= false
+
 # Authentication settings (optional)
 CONNECT_AS_TARGET ?= false
 TARGET_SSH_KEY ?= 
@@ -56,6 +60,7 @@ DEPLOY_TARGET ?= single
 # File paths (can be overridden) - defaults to claude-code-mcps config directory
 ENV_FILE ?= $(HOME)/.config/claude-code-mcps/.env
 MCP_FILE ?= $(HOME)/.config/claude-code-mcps/mcp-servers.json
+GIT_CONFIG_FILE ?= $(ENV_FILE)
 SSH_KEY ?= ~/.ssh/id_rsa
 TEMP_BASE_PATH ?= .tmp
 
@@ -99,6 +104,10 @@ ifneq ($(MCP_FILE),mcp-servers.json)
 	EXTRA_VARS += custom_mcp_servers_file=$(MCP_FILE)
 endif
 
+ifneq ($(GIT_CONFIG_FILE),$(ENV_FILE))
+	EXTRA_VARS += custom_git_config_file=$(GIT_CONFIG_FILE)
+endif
+
 # Add user configuration options
 ifneq ($(CREATE_USER_CLAUDE_CONFIG),)
 	EXTRA_VARS += create_user_claude_config=$(CREATE_USER_CLAUDE_CONFIG)
@@ -122,6 +131,11 @@ ifneq ($(SKIP_PACKAGE_UPGRADE),)
 	EXTRA_VARS += upgrade_packages=false
 endif
 
+# Add Git repository management options
+ifneq ($(MANAGE_GIT_REPOSITORIES),)
+	EXTRA_VARS += manage_git_repositories=$(MANAGE_GIT_REPOSITORIES)
+endif
+
 # =============================================================================
 # Help & Information
 # =============================================================================
@@ -141,11 +155,14 @@ help: ## Show this help message
 	@echo "  $(YELLOW)TARGET_USER$(NC)     Target user on VM (REQUIRED)"
 	@echo ""
 	@echo "$(WHITE)🔧 Optional Variables:$(NC)"
-	@echo "  $(YELLOW)VM_USER$(NC)         SSH user for deployment (default: $(VM_USER))"
-	@echo "  $(YELLOW)ENV_FILE$(NC)        Environment file path (default: $(ENV_FILE))"
-	@echo "  $(YELLOW)TARGET_SSH_KEY$(NC)       SSH key for target user (optional)"
-	@echo "  $(YELLOW)USE_SSH_PASSWORD$(NC)     Use password instead of key (default: $(USE_SSH_PASSWORD))"
-	@echo "  $(YELLOW)USE_BECOME_PASSWORD$(NC)  Sudo requires password (default: $(USE_BECOME_PASSWORD))"
+	@echo "  $(YELLOW)VM_USER$(NC)             SSH user for deployment (default: $(VM_USER))"
+	@echo "  $(YELLOW)ENV_FILE$(NC)            Environment file path (default: $(ENV_FILE))"
+	@echo "  $(YELLOW)GIT_CONFIG_FILE$(NC)     Git configuration file path (default: same as ENV_FILE)"
+	@echo "  $(YELLOW)KUBERNETES_BACKEND$(NC)  Kubernetes backend: k3s or kind (default: $(KUBERNETES_BACKEND))"
+	@echo "  $(YELLOW)MANAGE_GIT_REPOSITORIES$(NC) Enable Git repository management (default: $(MANAGE_GIT_REPOSITORIES))"
+	@echo "  $(YELLOW)TARGET_SSH_KEY$(NC)      SSH key for target user (optional)"
+	@echo "  $(YELLOW)USE_SSH_PASSWORD$(NC)    Use password instead of key (default: $(USE_SSH_PASSWORD))"
+	@echo "  $(YELLOW)USE_BECOME_PASSWORD$(NC) Sudo requires password (default: $(USE_BECOME_PASSWORD))"
 	@echo ""
 	@echo "$(WHITE)📝 Common Usage Examples:$(NC)"
 	@echo "  $(CYAN)# Complete deployment:$(NC)"
@@ -159,11 +176,24 @@ help: ## Show this help message
 	@echo "  $(CYAN)# Validate existing deployment:$(NC)"
 	@echo "  $(CYAN)make validate VM_HOST=192.168.1.100 TARGET_USER=developer$(NC)"
 	@echo ""
+	@echo "$(WHITE)🏗️ 4-Tier Deployment System:$(NC)"
+	@echo "  $(CYAN)# Tier 1 - Baseline: Git + Node.js + Claude Code + uvx$(NC)"
+	@echo "  $(CYAN)make deploy-baseline VM_HOST=192.168.1.100 TARGET_USER=developer$(NC)"
+	@echo ""
+	@echo "  $(CYAN)# Tier 2 - Enhanced: Baseline + MCPs + Docker$(NC)"
+	@echo "  $(CYAN)make deploy-enhanced VM_HOST=192.168.1.100 TARGET_USER=developer$(NC)"
+	@echo ""
+	@echo "  $(CYAN)# Tier 3 - Containerized: Enhanced + Docker Compose + bashrc$(NC)"
+	@echo "  $(CYAN)make deploy-containerized VM_HOST=192.168.1.100 TARGET_USER=developer$(NC)"
+	@echo ""
+	@echo "  $(CYAN)# Tier 4 - Full: Everything + Kubernetes (k3s default)$(NC)"
+	@echo "  $(CYAN)make deploy-full VM_HOST=192.168.1.100 TARGET_USER=developer$(NC)"
+	@echo "  $(CYAN)make deploy-full VM_HOST=192.168.1.100 TARGET_USER=developer KUBERNETES_BACKEND=kind$(NC)"
+	@echo ""
 	@echo "$(WHITE)⚙️ Component-Specific Deployments (Use Ansible Directly):$(NC)"
-	@echo "  $(CYAN)# Available tags: common, git, docker, nodejs, claude-code, kubernetes, mcp$(NC)"
-	@echo "  $(CYAN)ansible-playbook ansible/playbooks/site.yml --tags git$(NC)"
-	@echo "  $(CYAN)ansible-playbook ansible/playbooks/site.yml --tags docker,nodejs$(NC)"
-	@echo "  $(CYAN)ansible-playbook ansible/playbooks/site.yml --tags kubernetes,mcp$(NC)"
+	@echo "  $(CYAN)ansible-playbook ansible/playbooks/site.yml --tags git,git-repos$(NC)"
+	@echo "  $(CYAN)ansible-playbook ansible/playbooks/site.yml --tags docker -e install_docker=true$(NC)"
+	@echo "  $(CYAN)ansible-playbook ansible/playbooks/site.yml --tags kubernetes -e install_kubectl=true$(NC)"
 	@echo ""
 	@echo "$(WHITE)🔍 Advanced Ansible Usage:$(NC)"
 	@echo "  $(CYAN)# Dry run (check mode):$(NC)"
@@ -176,45 +206,66 @@ help: ## Show this help message
 	@echo "  $(CYAN)ansible-playbook ansible/playbooks/site.yml -i your_inventory.yml$(NC)"
 
 # =============================================================================
-# Main Deployment Commands
+# 4-Tier Deployment System
 # =============================================================================
-deploy: check-config test-connection create-dynamic-inventory ## Deploy complete development stack (optimized)
-	@echo "$(WHITE)Deployment Dir: $(YELLOW)$(DEPLOYMENT_DIR)$(NC)"
-	@echo ""
-	@echo "$(WHITE)🎯 Starting full deployment (all components)...$(NC)"
-	@timeout 1800 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i ansible/inventories/production -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS) install_docker=true install_kubectl=true install_kind=true install_kompose=true" $(LIMIT_FLAG) || { \
-		echo "$(RED)❌ Deployment failed or timed out$(NC)"; \
-		echo "$(YELLOW)💡 Possible issues:$(NC)"; \
-		echo "$(YELLOW)  - VM became unreachable during deployment$(NC)"; \
-		echo "$(YELLOW)  - Network connectivity issues$(NC)"; \
-		echo "$(YELLOW)  - Deployment took longer than 30 minutes$(NC)"; \
-		echo "$(YELLOW)🔧 Troubleshooting:$(NC)"; \
-		echo "$(YELLOW)  - Run 'make test-connection' to verify VM status$(NC)"; \
-		echo "$(YELLOW)  - Check VM resources (disk space, memory)$(NC)"; \
-		echo "$(YELLOW)  - Review deployment logs for specific errors$(NC)"; \
-		exit 1; \
-	}
-	@echo ""
-	@echo "$(GREEN)✅ Deployment complete!$(NC)"
 
-deploy-base: check-config test-connection create-dynamic-inventory ## Deploy base system only (Git, Node.js, MCP)
+# Tier 1: Baseline - Claude Code + Node.js + uvx + Git functionalities
+deploy-baseline: check-config test-connection create-dynamic-inventory ## Deploy baseline system (Git, Node.js, Claude Code, uvx)
 	@echo "$(WHITE)Deployment Dir: $(YELLOW)$(DEPLOYMENT_DIR)$(NC)"
 	@echo ""
-	@echo "$(WHITE)🎯 Starting base system deployment (Git, Node.js, MCPs)...$(NC)"
-	@timeout 1800 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i ansible/inventories/production -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS)" --tags "common,git,nodejs,mcp" $(LIMIT_FLAG) || { \
+	@echo "$(WHITE)🎯 Starting baseline deployment (Git, Node.js, Claude Code, uvx)...$(NC)"
+	@timeout 1800 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i ansible/inventories/production -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS)" --tags "common,git,git-repos,nodejs,uvx" $(LIMIT_FLAG) || { \
 		echo "$(RED)❌ Deployment failed or timed out$(NC)"; \
-		echo "$(YELLOW)💡 Possible issues:$(NC)"; \
-		echo "$(YELLOW)  - VM became unreachable during deployment$(NC)"; \
-		echo "$(YELLOW)  - Network connectivity issues$(NC)"; \
-		echo "$(YELLOW)  - Deployment took longer than 30 minutes$(NC)"; \
-		echo "$(YELLOW)🔧 Troubleshooting:$(NC)"; \
-		echo "$(YELLOW)  - Run 'make test-connection' to verify VM status$(NC)"; \
-		echo "$(YELLOW)  - Check VM resources (disk space, memory)$(NC)"; \
-		echo "$(YELLOW)  - Review deployment logs for specific errors$(NC)"; \
+		echo "$(YELLOW)💡 Run 'make test-connection' to verify VM status$(NC)"; \
 		exit 1; \
 	}
+	@echo "$(GREEN)✅ Baseline deployment complete!$(NC)"
+
+# Tier 2: Enhanced - Baseline + MCPs + Docker + Docker group integration
+deploy-enhanced: check-config test-connection create-dynamic-inventory ## Deploy enhanced system (Baseline + MCPs + Docker)
+	@echo "$(WHITE)Deployment Dir: $(YELLOW)$(DEPLOYMENT_DIR)$(NC)"
 	@echo ""
-	@echo "$(GREEN)✅ Deployment complete!$(NC)"
+	@echo "$(WHITE)🎯 Starting enhanced deployment (Baseline + MCPs + Docker)...$(NC)"
+	@timeout 1800 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i ansible/inventories/production -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS) install_docker=true" --tags "common,git,git-repos,nodejs,uvx,mcp,docker" $(LIMIT_FLAG) || { \
+		echo "$(RED)❌ Deployment failed or timed out$(NC)"; \
+		echo "$(YELLOW)💡 Run 'make test-connection' to verify VM status$(NC)"; \
+		exit 1; \
+	}
+	@echo "$(GREEN)✅ Enhanced deployment complete!$(NC)"
+
+# Tier 3: Containerized - Enhanced + Docker Compose + bashrc integrations
+deploy-containerized: check-config test-connection create-dynamic-inventory ## Deploy containerized system (Enhanced + Docker Compose + bashrc)
+	@echo "$(WHITE)Deployment Dir: $(YELLOW)$(DEPLOYMENT_DIR)$(NC)"
+	@echo ""
+	@echo "$(WHITE)🎯 Starting containerized deployment (Enhanced + Docker Compose + bashrc)...$(NC)"
+	@timeout 1800 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i ansible/inventories/production -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS) install_docker=true enable_bashrc_integrations=true" --tags "common,git,git-repos,nodejs,uvx,mcp,docker,bashrc" $(LIMIT_FLAG) || { \
+		echo "$(RED)❌ Deployment failed or timed out$(NC)"; \
+		echo "$(YELLOW)💡 Run 'make test-connection' to verify VM status$(NC)"; \
+		exit 1; \
+	}
+	@echo "$(GREEN)✅ Containerized deployment complete!$(NC)"
+
+# Tier 4: Full - Containerized + Kubernetes tools + all CLI tools + comprehensive bashrc
+deploy-full: check-config test-connection create-dynamic-inventory ## Deploy full system (Everything + Kubernetes + comprehensive bashrc)
+	@echo "$(WHITE)Deployment Dir: $(YELLOW)$(DEPLOYMENT_DIR)$(NC)"
+	@echo ""
+	@echo "$(WHITE)🎯 Starting full deployment (Everything + Kubernetes)...$(NC)"
+	@KUBERNETES_BACKEND="$(KUBERNETES_BACKEND)"; \
+	if [ "$$KUBERNETES_BACKEND" = "kind" ]; then \
+		KUBERNETES_FLAGS="install_docker=true install_kubectl=true install_kind=true install_k3s=false install_kompose=true"; \
+	else \
+		KUBERNETES_FLAGS="install_docker=true install_kubectl=true install_k3s=true install_kind=false install_kompose=true"; \
+	fi; \
+	timeout 1800 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i ansible/inventories/production -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS) $$KUBERNETES_FLAGS enable_bashrc_integrations=true" $(LIMIT_FLAG) || { \
+		echo "$(RED)❌ Deployment failed or timed out$(NC)"; \
+		echo "$(YELLOW)💡 Run 'make test-connection' to verify VM status$(NC)"; \
+		exit 1; \
+	}
+	@echo "$(GREEN)✅ Full deployment complete!$(NC)"
+
+# Legacy aliases for backward compatibility
+deploy-base: deploy-enhanced ## Legacy alias for deploy-enhanced
+deploy: deploy-full ## Legacy alias for deploy-full
 
 
 # =============================================================================
@@ -290,7 +341,7 @@ test-connection: ## Test network connectivity to target VM
 		SSH_CMD="$$SSH_CMD -i $(TARGET_SSH_KEY)"; \
 	fi; \
 	SSH_CMD="$$SSH_CMD $$TEST_USER@$(VM_HOST) echo connection-test-successful"; \
-	if timeout 15 $$SSH_CMD 2>/dev/null | grep -q "connection-test-successful"; then \
+	if $$SSH_CMD 2>/dev/null | grep -q "connection-test-successful"; then \
 		echo "$(GREEN)✅ SSH authentication successful$(NC)"; \
 	else \
 		echo "$(RED)❌ SSH authentication failed$(NC)"; \
@@ -312,7 +363,7 @@ test-connection: ## Test network connectivity to target VM
 		SSH_CMD="$$SSH_CMD -i $(TARGET_SSH_KEY)"; \
 	fi; \
 	SSH_CMD="$$SSH_CMD $$TEST_USER@$(VM_HOST) sudo -n whoami"; \
-	if timeout 15 $$SSH_CMD 2>/dev/null | grep -q "root"; then \
+	if $$SSH_CMD 2>/dev/null | grep -q "root"; then \
 		echo "$(GREEN)✅ Sudo access confirmed (passwordless)$(NC)"; \
 	elif [ "$(USE_BECOME_PASSWORD)" = "true" ] && [ -n "$(BECOME_PASSWORD)" ]; then \
 		echo "$(GREEN)✅ Sudo password provided for deployment$(NC)"; \

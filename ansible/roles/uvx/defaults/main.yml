@@ -1,0 +1,22 @@
+---
+# Default variables for uvx role
+
+# uvx installation method - uv package includes uvx
+install_uvx: true
+uvx_install_method: "curl"  # Options: "curl", "pip", "pipx"
+
+# Python and pip configuration
+python_package: "python3"
+pip_package: "python3-pip"
+pipx_package: "pipx"
+
+# uv/uvx installation paths
+uv_install_dir: "/usr/local/bin"
+uv_install_url: "https://astral.sh/uv/install.sh"
+
+# User configuration
+configure_uvx_for_user: true
+
+# Validation settings
+validate_uvx_installation: true
+test_uvx_command: true
