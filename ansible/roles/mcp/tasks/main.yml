@@ -73,9 +73,9 @@
       delegate_to: localhost
       become: false
 
-    - name: Generate default MCP servers configuration if none exists locally
-      template:
-        src: mcp-servers.json.j2
+    - name: Copy template MCP servers configuration if none exists locally
+      copy:
+        src: "{{ playbook_dir }}/../config/mcp-servers.template.json"
         dest: "{{ mcp_servers_file }}"
         mode: '0600'
       delegate_to: localhost

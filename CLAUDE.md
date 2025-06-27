@@ -142,12 +142,12 @@ ansible-playbook ansible/playbooks/site.yml --tags docker --check
 - MCP servers: Edit MCP configuration and run `make deploy-mcp`
 - Git repos: Update config file and run `make deploy-git-repos`
 
-## 🎨 MCP Servers Included
+## 🎨 MCP Servers Configuration
 
-The system deploys MCP servers based on configuration:
-- **Always included**: memory, sequential-thinking, puppeteer, doc-forge (4 servers)
-- **With API keys**: brave-search (Brave API), context7 (Upstash Redis), omnisearch (multiple search APIs)
-- **User-configurable**: Can use custom MCP configuration files instead of templates
+The system uses `config/mcp-servers.template.json` as the default configuration:
+- **No API keys needed**: memory, sequential-thinking, puppeteer, doc-forge (4 servers)
+- **Require API keys**: brave-search, context7, omnisearch (3 servers)
+- **Fully customizable**: Edit the template or provide your own `config/mcp-servers.json`
 
 ## 📄 Claude Configuration (CLAUDE.md)
 

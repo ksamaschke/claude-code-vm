@@ -9,7 +9,7 @@ temp_dir: "{{ deployment_base_dir }}/tmp"
 # MCP configuration
 mcp_config_dir: "{{ target_user_home }}/.claude"
 mcp_config_file: "{{ mcp_config_dir }}/mcp-servers.json"
-mcp_template_file: "mcp-servers.template.json"
+mcp_template_file: "{{ playbook_dir }}/../config/mcp-servers.template.json"
 
 # Environment file configuration
 use_env_file: true
