@@ -57,7 +57,7 @@ make test-connection VM_HOST=<ip> TARGET_USER=<user>  # Test SSH
 # Tier 1: Minimal (Git + Node.js + Claude Code)
 make deploy-baseline VM_HOST=<ip> TARGET_USER=<user>
 
-# Tier 2: Enhanced (+ 11 MCP servers + Docker)
+# Tier 2: Enhanced (+ MCP servers + Docker)
 make deploy-enhanced VM_HOST=<ip> TARGET_USER=<user>
 
 # Tier 3: Containerized (+ Docker Compose + shell enhancements)
@@ -144,11 +144,10 @@ ansible-playbook ansible/playbooks/site.yml --tags docker --check
 
 ## 🎨 MCP Servers Included
 
-The system deploys 11 pre-configured MCP servers:
-- **Search/Web**: brave-search, github, gitlab-public
-- **AI Tools**: memory, sequential-thinking, Context7
-- **Documents**: doc-forge, pdf-reader, document-operations
-- **Automation**: puppeteer, puppeteer-docker
+The system deploys MCP servers based on configuration:
+- **Always included**: memory, sequential-thinking, puppeteer, doc-forge (4 servers)
+- **With API keys**: brave-search (Brave API), context7 (Upstash Redis), omnisearch (multiple search APIs)
+- **User-configurable**: Can use custom MCP configuration files instead of templates
 
 ## 📄 Claude Configuration (CLAUDE.md)
 

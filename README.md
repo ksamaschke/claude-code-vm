@@ -35,11 +35,9 @@ make deploy-full VM_HOST=192.168.1.100 TARGET_USER=developer           # + Kuber
 ### Tier 2: Enhanced (`deploy-enhanced`)
 **Baseline + AI capabilities + containerization**
 - ✅ **Everything from Tier 1**
-- ✅ **11 MCP servers** automatically configured:
-  - 🔍 **Search & Web**: brave-search (web search), github (GitHub integration), gitlab-public (GitLab integration)
-  - 🧠 **AI Enhancement**: memory (conversation memory), sequential-thinking (step-by-step reasoning)
-  - 📄 **Documents**: doc-forge (documentation), pdf-reader (PDF processing), document-operations (Office docs)
-  - 🔧 **Development**: Context7 (context management), puppeteer (browser automation), puppeteer-docker (containerized browser)
+- ✅ **MCP servers** configured based on available API keys:
+  - 🧠 **Always included**: memory, sequential-thinking, puppeteer, doc-forge (4 servers)
+  - 🔍 **With API keys**: brave-search (Brave API), context7 (Upstash Redis), omnisearch (multiple search APIs)
 - ✅ **Docker** with user group integration (passwordless container management)
 - ✅ **Docker group setup** (needed for puppeteer-docker and other containerized MCPs)
 
@@ -214,11 +212,11 @@ See [docs/claude-config.md](docs/claude-config.md) for detailed documentation.
 ## 💡 Smart Features
 
 ### 🤖 AI-Enhanced Development
-- **Claude Code CLI** with 11 pre-configured MCP servers for enhanced AI capabilities
-- **MCP servers** automatically deployed:
-  - Search & web browsing (Brave Search API integration)
-  - Memory persistence across conversations
-  - Document processing (PDFs, Office docs, Markdown)
+- **Claude Code CLI** with configurable MCP servers for enhanced AI capabilities
+- **MCP servers** deployed based on configuration:
+  - Always: memory, sequential-thinking, puppeteer, doc-forge (4 servers)
+  - With API keys: brave-search, context7, omnisearch
+  - Supports user-provided MCP configuration files
   - GitHub/GitLab repository integration with PAT support
   - Sequential thinking for complex problem solving
   - Browser automation with Puppeteer (both local and Docker)
