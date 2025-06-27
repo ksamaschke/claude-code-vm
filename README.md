@@ -79,7 +79,11 @@ config/
 ├── env.example                # Template for .env file with Git credentials and API keys
 ├── git-repos.env.example      # Template for Git repository configuration
 ├── mcp-servers.template.json  # Template for MCP server configuration
-└── CLAUDE.md.default          # Default CLAUDE.md for target VMs
+├── CLAUDE.common.md           # Common base configuration (shared by all)
+├── CLAUDE.minimal.md          # Minimal deployment configuration
+├── CLAUDE.enhanced.md         # Enhanced deployment with MCP/Docker
+├── CLAUDE.containerized.md    # Containerized with Docker Compose
+└── CLAUDE.full.md            # Full deployment with Kubernetes
 ```
 
 ### Configuration Files
@@ -179,6 +183,33 @@ make list-remote SSH_HOST=<ip> SSH_USER=<user>  # List MCP servers on remote VM
 # Git repository management
 make deploy-git-repos     # Clone and manage Git repositories on target VM
 ```
+
+### 4. Claude Configuration (CLAUDE.md)
+
+The system automatically deploys a `CLAUDE.md` file to `~/.claude/CLAUDE.md` on target VMs, providing Claude Code with context about the deployment environment.
+
+**Features:**
+- **Auto-detection**: Automatically selects the right configuration based on deployment tier
+- **Modular templates**: Uses inheritance (common → minimal → enhanced → containerized → full)
+- **Override support**: Use custom templates with `claude_config_template` parameter
+- **Include processing**: Templates can include other templates for modularity
+
+**Usage:**
+```bash
+# Auto-detection (default)
+make deploy-enhanced VM_HOST=192.168.1.100 TARGET_USER=dev
+# Deploys config/CLAUDE.enhanced.md automatically
+
+# Custom template
+make deploy VM_HOST=192.168.1.100 TARGET_USER=dev \
+  EXTRA_VARS="claude_config_template=config/CLAUDE.custom.md"
+
+# Force override existing
+make deploy VM_HOST=192.168.1.100 TARGET_USER=dev \
+  EXTRA_VARS="claude_config_force_override=true"
+```
+
+See [docs/claude-config.md](docs/claude-config.md) for detailed documentation.
 
 ## 💡 Smart Features
 

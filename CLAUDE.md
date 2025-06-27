@@ -144,6 +144,52 @@ The system deploys 11 pre-configured MCP servers:
 - **Documents**: doc-forge, pdf-reader, document-operations
 - **Automation**: puppeteer, puppeteer-docker
 
+## 📄 Claude Configuration (CLAUDE.md)
+
+The project automatically deploys a CLAUDE.md file to target VMs that provides Claude Code with deployment-specific context:
+
+### Features
+- **Auto-detection**: Automatically selects configuration based on deployment tier
+- **Modular templates**: Uses inheritance chain (common → minimal → enhanced → containerized → full)
+- **Custom templates**: Support for project-specific configurations
+- **Include processing**: Templates can include other templates for modularity
+
+### Configuration Templates
+```
+config/CLAUDE.common.md          # Base configuration (all deployments)
+config/CLAUDE.minimal.md         # Tier 1: Minimal deployment
+config/CLAUDE.enhanced.md        # Tier 2: Enhanced with MCP/Docker
+config/CLAUDE.containerized.md   # Tier 3: With Docker Compose
+config/CLAUDE.full.md           # Tier 4: Full with Kubernetes
+```
+
+### Usage
+```bash
+# Auto-detection (default behavior)
+make deploy-enhanced VM_HOST=<ip> TARGET_USER=<user>
+# Automatically uses config/CLAUDE.enhanced.md
+
+# Custom template
+make deploy VM_HOST=<ip> TARGET_USER=<user> \
+  EXTRA_VARS="claude_config_template=config/CLAUDE.custom.md"
+
+# Force override existing CLAUDE.md
+make deploy VM_HOST=<ip> TARGET_USER=<user> \
+  EXTRA_VARS="claude_config_force_override=true"
+
+# Disable auto-detection
+make deploy VM_HOST=<ip> TARGET_USER=<user> \
+  EXTRA_VARS="claude_config_auto_detect=false claude_config_template=config/CLAUDE.minimal.md"
+```
+
+### Creating Custom Templates
+1. Create your template in `config/`
+2. Use includes for common content: `<!-- INCLUDE: config/CLAUDE.common.md -->`
+3. Add deployment-specific sections
+4. Deploy with `claude_config_template` parameter
+
+See `docs/claude-config.md` for detailed documentation.
+
 ## ⚠️ Important Notes
 
 1. **Dynamic Inventory**: The Makefile creates temporary inventories - don't edit `hosts.yml` directly

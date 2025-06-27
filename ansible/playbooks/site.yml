@@ -148,6 +148,15 @@
         - integrations
         - aliases
 
+    - role: claude-config
+      tags:
+        - claude-config
+        - claude-md
+        - configuration
+      vars:
+        mcp_servers_deployed: true
+        docker_compose_installed: "{{ install_docker | default(false) }}"
+
   post_tasks:
     - name: Ensure /tmp permissions are correct after all installations
       shell: |

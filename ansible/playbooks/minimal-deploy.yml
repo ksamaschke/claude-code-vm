@@ -178,6 +178,21 @@
         PATH: "{{ user_info.ansible_facts.getent_passwd[target_user][4] }}/.npm-global/bin:{{ ansible_env.PATH }}"
       tags: claude-code
 
+  roles:
+    - role: claude-config
+      tags:
+        - claude-config
+        - claude-md
+        - configuration
+      vars:
+        deployment_tier: "minimal"
+        mcp_servers_deployed: false
+        docker_compose_installed: false
+        install_docker_with_k3s: true
+        install_k3s: false
+        install_kind: false
+        target_user_home: "{{ user_info.ansible_facts.getent_passwd[target_user][4] }}"
+
   post_tasks:
     - name: Verify installations
       block:

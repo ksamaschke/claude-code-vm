@@ -110,6 +110,11 @@
           - "{{ mcp_sync_result.stdout_lines | default(['No output']) }}"
       when: mcp_sync_result.stdout_lines is defined
 
+    - name: Set MCP servers deployment status
+      set_fact:
+        mcp_servers_deployed: true
+      when: mcp_sync_result.rc == 0
+
     - name: Show MCP configuration status
       debug:
         msg:
