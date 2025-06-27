@@ -15,7 +15,7 @@
 #
 # =============================================================================
 
-.PHONY: help deploy deploy-base validate clean setup check-config test-connection create-dynamic-inventory deploy-mcp setup-mcp-tool generate-mcp-config
+.PHONY: help deploy deploy-base validate clean setup check-config test-connection create-dynamic-inventory deploy-git-repos deploy-mcp setup-mcp-tool generate-mcp-config
 
 # Default target
 .DEFAULT_GOAL := help
@@ -57,9 +57,9 @@ BECOME_PASSWORD ?=
 # Deployment target (single machine vs group)
 DEPLOY_TARGET ?= single
 
-# File paths (can be overridden) - defaults to claude-code-mcps config directory
-ENV_FILE ?= $(HOME)/.config/claude-code-mcps/.env
-MCP_FILE ?= $(HOME)/.config/claude-code-mcps/mcp-servers.json
+# File paths (can be overridden) - defaults to config directory
+ENV_FILE ?= config/.env
+MCP_FILE ?= config/mcp-servers.json
 GIT_CONFIG_FILE ?= $(ENV_FILE)
 SSH_KEY ?= ~/.ssh/id_rsa
 TEMP_BASE_PATH ?= .tmp
@@ -214,7 +214,11 @@ deploy-baseline: check-config test-connection create-dynamic-inventory ## Deploy
 	@echo "$(WHITE)Deployment Dir: $(YELLOW)$(DEPLOYMENT_DIR)$(NC)"
 	@echo ""
 	@echo "$(WHITE)🎯 Starting baseline deployment (Git, Node.js, Claude Code, uvx)...$(NC)"
-	@timeout 1800 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i ansible/inventories/production -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS)" --tags "common,git,git-repos,nodejs,uvx" $(LIMIT_FLAG) || { \
+	@if command -v timeout >/dev/null 2>&1; then \
+		timeout 1800 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i ansible/inventories/production -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS)" --tags "common,git,git-repos,nodejs,uvx" $(LIMIT_FLAG); \
+	else \
+		$(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i ansible/inventories/production -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS)" --tags "common,git,git-repos,nodejs,uvx" $(LIMIT_FLAG); \
+	fi || { \
 		echo "$(RED)❌ Deployment failed or timed out$(NC)"; \
 		echo "$(YELLOW)💡 Run 'make test-connection' to verify VM status$(NC)"; \
 		exit 1; \
@@ -226,7 +230,11 @@ deploy-enhanced: check-config test-connection create-dynamic-inventory ## Deploy
 	@echo "$(WHITE)Deployment Dir: $(YELLOW)$(DEPLOYMENT_DIR)$(NC)"
 	@echo ""
 	@echo "$(WHITE)🎯 Starting enhanced deployment (Baseline + MCPs + Docker)...$(NC)"
-	@timeout 1800 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i ansible/inventories/production -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS) install_docker=true" --tags "common,git,git-repos,nodejs,uvx,mcp,docker" $(LIMIT_FLAG) || { \
+	@if command -v timeout >/dev/null 2>&1; then \
+		timeout 1800 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i ansible/inventories/production -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS) install_docker=true" --tags "common,git,git-repos,nodejs,uvx,mcp,docker" $(LIMIT_FLAG); \
+	else \
+		$(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i ansible/inventories/production -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS) install_docker=true" --tags "common,git,git-repos,nodejs,uvx,mcp,docker" $(LIMIT_FLAG); \
+	fi || { \
 		echo "$(RED)❌ Deployment failed or timed out$(NC)"; \
 		echo "$(YELLOW)💡 Run 'make test-connection' to verify VM status$(NC)"; \
 		exit 1; \
@@ -238,7 +246,11 @@ deploy-containerized: check-config test-connection create-dynamic-inventory ## D
 	@echo "$(WHITE)Deployment Dir: $(YELLOW)$(DEPLOYMENT_DIR)$(NC)"
 	@echo ""
 	@echo "$(WHITE)🎯 Starting containerized deployment (Enhanced + Docker Compose + bashrc)...$(NC)"
-	@timeout 1800 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i ansible/inventories/production -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS) install_docker=true enable_bashrc_integrations=true" --tags "common,git,git-repos,nodejs,uvx,mcp,docker,bashrc" $(LIMIT_FLAG) || { \
+	@if command -v timeout >/dev/null 2>&1; then \
+		timeout 1800 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i ansible/inventories/production -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS) install_docker=true enable_bashrc_integrations=true" --tags "common,git,git-repos,nodejs,uvx,mcp,docker,bashrc" $(LIMIT_FLAG); \
+	else \
+		$(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i ansible/inventories/production -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS) install_docker=true enable_bashrc_integrations=true" --tags "common,git,git-repos,nodejs,uvx,mcp,docker,bashrc" $(LIMIT_FLAG); \
+	fi || { \
 		echo "$(RED)❌ Deployment failed or timed out$(NC)"; \
 		echo "$(YELLOW)💡 Run 'make test-connection' to verify VM status$(NC)"; \
 		exit 1; \
@@ -256,7 +268,11 @@ deploy-full: check-config test-connection create-dynamic-inventory ## Deploy ful
 	else \
 		KUBERNETES_FLAGS="install_docker=true install_kubectl=true install_k3s=true install_kind=false install_kompose=true"; \
 	fi; \
-	timeout 1800 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i ansible/inventories/production -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS) $$KUBERNETES_FLAGS enable_bashrc_integrations=true" $(LIMIT_FLAG) || { \
+	if command -v timeout >/dev/null 2>&1; then \
+		timeout 1800 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i ansible/inventories/production -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS) $$KUBERNETES_FLAGS enable_bashrc_integrations=true" $(LIMIT_FLAG); \
+	else \
+		$(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i ansible/inventories/production -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS) $$KUBERNETES_FLAGS enable_bashrc_integrations=true" $(LIMIT_FLAG); \
+	fi || { \
 		echo "$(RED)❌ Deployment failed or timed out$(NC)"; \
 		echo "$(YELLOW)💡 Run 'make test-connection' to verify VM status$(NC)"; \
 		exit 1; \
@@ -273,7 +289,11 @@ deploy: deploy-full ## Legacy alias for deploy-full
 # =============================================================================
 validate: check-config test-connection create-dynamic-inventory ## Validate deployed components
 	@echo "$(CYAN)✅ Validating deployment...$(NC)"
-	@timeout 300 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/validate.yml -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS)" $(LIMIT_FLAG) || { \
+	@if command -v timeout >/dev/null 2>&1; then \
+		timeout 300 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/validate.yml -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS)" $(LIMIT_FLAG); \
+	else \
+		$(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/validate.yml -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS)" $(LIMIT_FLAG); \
+	fi || { \
 		echo "$(RED)❌ Validation failed$(NC)"; \
 		echo "$(YELLOW)💡 Run 'make test-connection' to verify VM status$(NC)"; \
 		exit 1; \
@@ -323,16 +343,22 @@ test-connection: ## Test network connectivity to target VM
 	fi; \
 	echo ""; \
 	echo "$(WHITE)🎯 Step 2: Testing SSH port connectivity...$(NC)"; \
-	if timeout 10 bash -c "</dev/tcp/$(VM_HOST)/22" 2>/dev/null; then \
+	PORT_OPEN=false; \
+	if command -v nc >/dev/null 2>&1; then \
+		if nc -z -w 5 $(VM_HOST) 22 2>/dev/null || nc -zv -w 5 $(VM_HOST) 22 2>&1 | grep -q "succeeded\|connected"; then \
+			PORT_OPEN=true; \
+		fi; \
+	fi; \
+	if [ "$$PORT_OPEN" = "false" ] && command -v timeout >/dev/null 2>&1; then \
+		if timeout 10 bash -c "</dev/tcp/$(VM_HOST)/22" 2>/dev/null; then \
+			PORT_OPEN=true; \
+		fi; \
+	fi; \
+	if [ "$$PORT_OPEN" = "true" ]; then \
 		echo "$(GREEN)✅ SSH port 22 is open on $(VM_HOST)$(NC)"; \
 	else \
-		echo "$(RED)❌ SSH port 22 is not accessible on $(VM_HOST)$(NC)"; \
-		echo "$(YELLOW)💡 Possible issues:$(NC)"; \
-		echo "$(YELLOW)  - VM is not running$(NC)"; \
-		echo "$(YELLOW)  - Firewall blocking SSH (port 22)$(NC)"; \
-		echo "$(YELLOW)  - SSH service not running$(NC)"; \
-		echo "$(YELLOW)  - Wrong IP address$(NC)"; \
-		exit 1; \
+		echo "$(YELLOW)⚠️  SSH port 22 check inconclusive (continuing anyway)$(NC)"; \
+		echo "$(YELLOW)💡 Will attempt SSH connection to verify access$(NC)"; \
 	fi; \
 	echo ""; \
 	echo "$(WHITE)🎯 Step 3: Testing SSH authentication...$(NC)"; \
@@ -378,6 +404,37 @@ test-connection: ## Test network connectivity to target VM
 
 
 # =============================================================================
+# Git Repository Management
+# =============================================================================
+deploy-git-repos: check-config test-connection create-dynamic-inventory ## Clone and manage Git repositories
+	@echo "$(CYAN)📦 Deploying Git repositories...$(NC)"
+	@echo "$(WHITE)Target: $(YELLOW)$(DEPLOY_TARGET)$(NC)"
+	@echo "$(WHITE)Host: $(YELLOW)$(if $(and $(filter root,$(VM_USER)),$(TARGET_USER)),$(TARGET_USER),$(VM_USER))@$(VM_HOST)$(NC)"
+	@echo "$(WHITE)User: $(YELLOW)$(TARGET_USER)$(NC)"
+	@echo ""
+	@echo "$(WHITE)🎯 Managing Git repositories with Ansible...$(NC)"
+	@ANSIBLE_VERBOSITY=""; \
+	if [ -n "$(VERBOSE)" ]; then ANSIBLE_VERBOSITY="-$(VERBOSE)"; fi; \
+	if command -v timeout >/dev/null 2>&1; then \
+		timeout 600 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS) manage_git_repositories=true" $(LIMIT_FLAG) --tags git,git-repos $$ANSIBLE_VERBOSITY; \
+	else \
+		$(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS) manage_git_repositories=true" $(LIMIT_FLAG) --tags git,git-repos $$ANSIBLE_VERBOSITY; \
+	fi || { \
+		echo "$(RED)❌ Git repository deployment failed$(NC)"; \
+		echo "$(YELLOW)💡 Possible issues:$(NC)"; \
+		echo "$(YELLOW)  - Invalid Git configuration file format$(NC)"; \
+		echo "$(YELLOW)  - Missing Git credentials or URLs$(NC)"; \
+		echo "$(YELLOW)  - Network connectivity issues$(NC)"; \
+		echo "$(YELLOW)🔧 Troubleshooting:$(NC)"; \
+		echo "$(YELLOW)  - Check $(GIT_CONFIG_FILE) for proper format$(NC)"; \
+		echo "$(YELLOW)  - Ensure Git URLs are defined (GITHUB_URL, GIT_REPO_URL, etc.)$(NC)"; \
+		echo "$(YELLOW)  - Run 'make test-connection' to verify VM status$(NC)"; \
+		exit 1; \
+	}
+	@echo ""
+	@echo "$(GREEN)✅ Git repository deployment complete!$(NC)"
+
+# =============================================================================
 # MCP (Model Context Protocol) Management
 # =============================================================================
 deploy-mcp: check-config test-connection create-dynamic-inventory ## Deploy MCP servers only (requires Claude Code)
@@ -387,7 +444,11 @@ deploy-mcp: check-config test-connection create-dynamic-inventory ## Deploy MCP 
 	@echo "$(WHITE)User: $(YELLOW)$(TARGET_USER)$(NC)"
 	@echo ""
 	@echo "$(WHITE)🎯 Deploying MCP servers with Ansible...$(NC)"
-	@timeout 600 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS)" $(LIMIT_FLAG) --tags mcp || { \
+	@if command -v timeout >/dev/null 2>&1; then \
+		timeout 600 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS)" $(LIMIT_FLAG) --tags mcp; \
+	else \
+		$(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS)" $(LIMIT_FLAG) --tags mcp; \
+	fi || { \
 		echo "$(RED)❌ MCP deployment failed$(NC)"; \
 		echo "$(YELLOW)💡 Possible issues:$(NC)"; \
 		echo "$(YELLOW)  - Claude Code not installed (deploy full stack first)$(NC)"; \

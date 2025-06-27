@@ -1,11 +1,13 @@
 ---
-# Host-specific variables for debian-vm (192.168.1.113)
-# References existing configs from ~/.config/claude-code-mcps
+# Host-specific variables for debian-vm
+# This is an EXAMPLE file - actual values should be provided via command line or environment
+#
+# To use external configuration files:
+# make deploy VM_HOST=your.ip TARGET_USER=username ENV_FILE=/path/to/.env MCP_FILE=/path/to/mcp-servers.json
 
-# Override config paths to use existing files
-env_config_path: "{{ ansible_env.HOME }}/.config/claude-code-mcps/.env"
-mcp_servers_config_path: "{{ ansible_env.HOME }}/.config/claude-code-mcps/mcp-servers.json"
+# Example override paths (update these to match your setup)
+# env_config_path: "/path/to/your/.env"
+# mcp_servers_config_path: "/path/to/your/mcp-servers.json"
 
-# Ensure we use the control machine's configs
-local_env_config_path: "~/.config/claude-code-mcps/.env"
-local_mcp_servers_config_path: "~/.config/claude-code-mcps/mcp-servers.json"
+# The Makefile and playbooks handle dynamic path resolution
+# No hardcoded paths should be committed to this file

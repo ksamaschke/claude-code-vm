@@ -35,9 +35,13 @@ make deploy-full VM_HOST=192.168.1.100 TARGET_USER=developer           # + Kuber
 ### Tier 2: Enhanced (`deploy-enhanced`)
 **Baseline + AI capabilities + containerization**
 - ✅ **Everything from Tier 1**
-- ✅ **MCP servers** configured with environment variables for AI extensions
+- ✅ **11 MCP servers** automatically configured:
+  - 🔍 **Search & Web**: brave-search (web search), github (GitHub integration), gitlab-public (GitLab integration)
+  - 🧠 **AI Enhancement**: memory (conversation memory), sequential-thinking (step-by-step reasoning)
+  - 📄 **Documents**: doc-forge (documentation), pdf-reader (PDF processing), document-operations (Office docs)
+  - 🔧 **Development**: Context7 (context management), puppeteer (browser automation), puppeteer-docker (containerized browser)
 - ✅ **Docker** with user group integration (passwordless container management)
-- ✅ **Docker group setup** (needed for many MCP servers that use containers)
+- ✅ **Docker group setup** (needed for puppeteer-docker and other containerized MCPs)
 
 ### Tier 3: Containerized (`deploy-containerized`)
 **Enhanced + orchestration + productivity**
@@ -57,6 +61,59 @@ make deploy-full VM_HOST=192.168.1.100 TARGET_USER=developer           # + Kuber
 - ✅ **Advanced functions**: `kctx`, `kns`, `drun`, `cdls`, `ff`
 - ✅ **User CLAUDE.md** with environment-specific guidance
 
+## 📋 Prerequisites
+
+- **Local machine**: Ansible 2.9+ installed
+- **Target VM**: Debian 12+ (Bookworm) with SSH access
+- **Network**: SSH port 22 open between local and target
+- **Permissions**: Target user with sudo access
+- **Optional**: Git PATs for repository access, API keys for MCP servers
+
+## 📁 Project Structure & Configuration
+
+### Default Configuration Directory: `config/`
+The project uses the `config/` directory for default configuration files:
+
+```
+config/
+├── env.example                # Template for .env file with Git credentials and API keys
+├── git-repos.env.example      # Template for Git repository configuration
+├── mcp-servers.template.json  # Template for MCP server configuration
+└── CLAUDE.md.default          # Default CLAUDE.md for target VMs
+```
+
+### Configuration Files
+1. **Environment File** (`.env`)
+   - Default location: `config/.env` (create from `config/env.example`)
+   - Override with: `ENV_FILE=/path/to/your/.env`
+   - Contains: Git credentials, API keys for MCP servers
+
+2. **MCP Configuration** (`mcp-servers.json`)
+   - Default location: `config/mcp-servers.json`
+   - Override with: `MCP_FILE=/path/to/your/mcp-servers.json`
+   - Contains: MCP server definitions and settings
+
+3. **Git Repository Configuration** 
+   - Default: Same as ENV_FILE
+   - Override with: `GIT_CONFIG_FILE=/path/to/your/git-repos.conf`
+   - Contains: Repository URLs, branches, and management settings
+
+### First-Time Setup
+```bash
+# 1. Clone the repository
+git clone https://github.com/yourusername/claude-code-vm.git
+cd claude-code-vm
+
+# 2. Run setup to create default configuration
+make setup  # Creates config/.env from template
+
+# 3. Edit configuration files
+nano config/.env  # Add your Git PATs and API keys
+
+# 4. Deploy
+make deploy-enhanced VM_HOST=192.168.1.100 TARGET_USER=developer
+```
+
 ## ⚙️ Configuration Options
 
 ### Kubernetes Backend Selection
@@ -70,11 +127,19 @@ make deploy-full VM_HOST=192.168.1.100 TARGET_USER=dev KUBERNETES_BACKEND=kind
 
 ### Git Repository Management
 ```bash
-# Enable automatic repository cloning
+# Deploy only Git repositories (after initial deployment)
+make deploy-git-repos VM_HOST=192.168.1.100 TARGET_USER=dev
+
+# Enable automatic repository cloning during deployment
 make deploy-enhanced VM_HOST=192.168.1.100 TARGET_USER=dev MANAGE_GIT_REPOSITORIES=true
 
 # Use separate Git configuration file
-make deploy-enhanced VM_HOST=192.168.1.100 TARGET_USER=dev GIT_CONFIG_FILE=.git-repos.env
+make deploy-git-repos VM_HOST=192.168.1.100 TARGET_USER=dev GIT_CONFIG_FILE=.git-repos.env
+
+# Supports multiple Git URL formats in config files:
+# GITHUB_URL=https://github.com/user/repo.git  (simple format)
+# GIT_REPO_URL=https://github.com/user/repo.git (single repo)
+# GIT_REPO_1_URL=... (multiple repos)
 ```
 
 ### Environment Files
@@ -108,16 +173,24 @@ make deploy-base           # Alias for deploy-enhanced
 make deploy                # Alias for deploy-full
 
 # MCP management
-make setup-mcp-tool        # Setup local MCP management tools
-make generate-mcp-config   # Generate MCP server configuration
-make deploy-mcp           # Deploy MCP servers to target VM
+make deploy-mcp           # Deploy/update MCP servers on target VM
+make list-remote SSH_HOST=<ip> SSH_USER=<user>  # List MCP servers on remote VM
+
+# Git repository management
+make deploy-git-repos     # Clone and manage Git repositories on target VM
 ```
 
 ## 💡 Smart Features
 
 ### 🤖 AI-Enhanced Development
-- **Claude Code CLI** with MCP server integration for enhanced AI capabilities
-- **MCP servers** for search (Brave), memory, document processing, GitHub/GitLab integration
+- **Claude Code CLI** with 11 pre-configured MCP servers for enhanced AI capabilities
+- **MCP servers** automatically deployed:
+  - Search & web browsing (Brave Search API integration)
+  - Memory persistence across conversations
+  - Document processing (PDFs, Office docs, Markdown)
+  - GitHub/GitLab repository integration with PAT support
+  - Sequential thinking for complex problem solving
+  - Browser automation with Puppeteer (both local and Docker)
 - **Environment-aware CLAUDE.md** generation on target VM with deployment-specific guidance
 - **uvx integration** for running AI tools and Python packages in isolation
 
@@ -174,6 +247,20 @@ make deploy-baseline VM_HOST=192.168.1.100 TARGET_USER=ci-agent
 ```
 
 ## 🔧 Advanced Configuration
+
+### Using External Configuration Files
+```bash
+# Use configuration files from another location
+make deploy-enhanced VM_HOST=192.168.1.100 TARGET_USER=dev \
+  ENV_FILE=/path/to/external/.env \
+  MCP_FILE=/path/to/external/mcp-servers.json \
+  GIT_CONFIG_FILE=/path/to/external/git-repos.conf
+
+# Example: Using configurations from another project
+make deploy-full VM_HOST=192.168.1.100 TARGET_USER=dev \
+  ENV_FILE=~/my-configs/.env \
+  MCP_FILE=~/my-configs/mcp-servers.json
+```
 
 ### Authentication Options
 ```bash

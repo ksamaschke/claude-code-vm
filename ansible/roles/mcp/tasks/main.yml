@@ -84,25 +84,24 @@
 
     - name: Synchronize MCP servers using remote configuration tool
       shell: |
-        ansible-playbook {{ playbook_dir }}/../.external-tools/claude-code-mcp-management-main/ansible/manage-mcp.yml \
-          -e "mode=all" \
-          -e "operation_mode=sync" \
-          -e "config_file={{ mcp_servers_file }}" \
-          -e "env_file={{ env_file_path }}" \
-          -e "mcp_target_host={{ ansible_host }}" \
-          -e "ansible_user={{ target_user }}"
+        cd {{ playbook_dir }}/../.external-tools/claude-code-mcp-management-main && \
+        make sync-remote \
+          CONFIG_FILE="{{ mcp_servers_file }}" \
+          ENV_FILE="{{ env_file_path }}" \
+          SSH_HOST="{{ ansible_host }}" \
+          SSH_USER="{{ target_user }}"
       delegate_to: localhost
       become: false
       register: mcp_sync_result
       args:
         executable: /bin/bash
 
-    - name: Display MCP dependency check results
+    - name: Display MCP synchronization status
       debug:
         msg: 
-          - "=== MCP Dependency Check ==="
-          - "{{ mcp_dependency_check.stdout_lines | default(['No output']) }}"
-      when: mcp_dependency_check.stdout_lines is defined
+          - "=== MCP Synchronization Status ==="
+          - "Sync command executed successfully"
+      when: mcp_sync_result is defined
 
     - name: Display MCP synchronization results
       debug:

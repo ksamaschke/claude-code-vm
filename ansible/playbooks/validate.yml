@@ -278,73 +278,37 @@
         - kubernetes
         - validation
 
-    - name: Validate MCP Configuration
+    - name: Validate MCP Configuration using MCP Management Tool
       block:
-        - name: Get target user home directory for MCP validation
-          getent:
-            database: passwd
-            key: "{{ target_user }}"
-          register: mcp_val_user_info
+        - name: Use MCP management tool to list servers
+          local_action:
+            module: shell
+            cmd: |
+              cd {{ playbook_dir }}/../.external-tools/claude-code-mcp-management-main && \
+              make list-remote SSH_HOST="{{ ansible_host }}" SSH_USER="{{ target_user }}" 2>&1 | \
+              grep -E "(memory:|brave-search:|Context7:|puppeteer:|sequential-thinking:|gitlab-public:|doc-forge:|pdf-reader:|document-operations:|github:|=== MCP VALIDATION SUMMARY ===|Overall Status:|MCP servers configuration complete!)" || echo "MCP_CHECK_FAILED"
+          register: mcp_remote_list
+          changed_when: false
+          failed_when: false
 
-        - name: Set MCP configuration paths
+        - name: Parse MCP server count
           set_fact:
-            mcp_config_path: "{{ mcp_val_user_info.ansible_facts.getent_passwd[target_user][4] }}/.claude/mcp-servers.json"
-            mcp_alt_config_path: "{{ mcp_val_user_info.ansible_facts.getent_passwd[target_user][4] }}/.config/claude-code/mcp-servers.json"
+            mcp_server_count: "{{ mcp_remote_list.stdout_lines | select('match', '^(memory:|brave-search:|Context7:|puppeteer:|sequential-thinking:|gitlab-public:|doc-forge:|pdf-reader:|document-operations:|github:)') | list | length }}"
 
-        - name: Check primary MCP configuration file
-          stat:
-            path: "{{ mcp_config_path }}"
-          register: mcp_config_file
+        - name: Check if MCP validation passed
+          set_fact:
+            mcp_validation_passed: "{{ 'Overall Status: PASSED' in mcp_remote_list.stdout }}"
 
-        - name: Check alternative MCP configuration file
-          stat:
-            path: "{{ mcp_alt_config_path }}"
-          register: mcp_alt_config_file
-
-        - name: Validate MCP configuration syntax
-          shell: "python3 -m json.tool {{ mcp_config_path }} > /dev/null"
-          become_user: "{{ target_user }}"
-          when: mcp_config_file.stat.exists
-          changed_when: false
-          register: mcp_json_syntax
-
-        - name: List configured MCP servers
-          shell: "jq -r '.mcpServers | keys[]' {{ mcp_config_path }}"
-          become_user: "{{ target_user }}"
-          when: mcp_config_file.stat.exists
-          changed_when: false
-          register: mcp_servers_list
-
-        - name: Check MCP server packages availability
-          shell: "{{ mcp_val_user_info.ansible_facts.getent_passwd[target_user][4] }}/.npm-global/bin/npm list -g {{ item }}"
-          become_user: "{{ target_user }}"
-          loop:
-            - "@modelcontextprotocol/server-sequential-thinking"
-            - "@modelcontextprotocol/server-memory"
-            - "@modelcontextprotocol/server-brave-search"
-            - "@upstash/context7-mcp"
-            - "@cablate/mcp-doc-forge"
-            - "mcp-omnisearch"
-          register: mcp_packages_check
-          changed_when: false
-          failed_when: false
-
-        - name: Check Docker image for Puppeteer MCP
-          command: docker images mcp/puppeteer --format "table {{ '{{' }}.Repository{{ '}}' }}:{{ '{{' }}.Tag{{ '}}' }}"
-          register: puppeteer_image_check
-          changed_when: false
-          failed_when: false
-
-        - name: Display MCP validation results
+        - name: Display MCP validation results from MCP Management Tool
           debug:
             msg:
               - "=== MCP Configuration Validation Results ==="
-              - "Primary config exists: {{ 'YES' if mcp_config_file.stat.exists else 'NO' }}"
-              - "Alternative config exists: {{ 'YES' if mcp_alt_config_file.stat.exists else 'NO' }}"
-              - "JSON syntax valid: {{ 'YES' if mcp_config_file.stat.exists and mcp_json_syntax is defined and mcp_json_syntax.rc == 0 else ('NO' if mcp_config_file.stat.exists and mcp_json_syntax is defined and mcp_json_syntax.rc != 0 else 'N/A - No config file') }}"
-              - "Configured servers: {{ mcp_servers_list.stdout_lines | join(', ') if mcp_config_file.stat.exists and mcp_servers_list is defined and mcp_servers_list.stdout_lines is defined else 'NONE' }}"
-              - "Puppeteer Docker image: {{ 'AVAILABLE' if puppeteer_image_check is defined and 'mcp/puppeteer' in puppeteer_image_check.stdout else 'NOT FOUND' }}"
-              - "MCP packages installed: {{ mcp_packages_check.results | selectattr('rc', 'equalto', 0) | list | length if mcp_packages_check is defined else 0 }}/{{ mcp_packages_check.results | length if mcp_packages_check is defined else 0 }}"
+              - "MCP Management Tool Validation: {{ 'PASSED' if mcp_validation_passed else 'FAILED' }}"
+              - "Configured MCP servers: {{ mcp_server_count }}"
+              - "Servers found: {{ mcp_remote_list.stdout_lines | select('match', '^(memory:|brave-search:|Context7:|puppeteer:|sequential-thinking:|gitlab-public:|doc-forge:|pdf-reader:|document-operations:|github:)') | list | length }}"
+              - ""
+              - "Server Details:"
+              - "{{ mcp_remote_list.stdout_lines | select('match', '^(memory:|brave-search:|Context7:|puppeteer:|sequential-thinking:|gitlab-public:|doc-forge:|pdf-reader:|document-operations:|github:)') | list | join('\n') }}"
 
       rescue:
         - name: MCP validation failed

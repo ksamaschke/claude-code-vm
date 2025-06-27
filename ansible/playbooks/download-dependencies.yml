@@ -44,11 +44,30 @@
             - "{{ playbook_dir }}/../.external-roles/ansible-role-docker-master"
             - "{{ playbook_dir }}/../.external-roles/geerlingguy.docker"
 
-        - name: Download latest geerlingguy.docker role
-          unarchive:
-            src: "https://github.com/geerlingguy/ansible-role-docker/archive/master.tar.gz"
-            dest: "{{ playbook_dir }}/../.external-roles"
-            remote_src: true
+        - name: Check if GNU tar is available
+          command: which gtar
+          register: gtar_check
+          failed_when: false
+          changed_when: false
+
+        - name: Download Docker role archive
+          get_url:
+            url: "https://github.com/geerlingguy/ansible-role-docker/archive/master.tar.gz"
+            dest: "/tmp/docker-role-master.tar.gz"
+            timeout: 30
+
+        - name: Extract Docker role with GNU tar
+          command: gtar -xzf /tmp/docker-role-master.tar.gz -C "{{ playbook_dir }}/../.external-roles"
+          when: gtar_check.rc == 0
+
+        - name: Extract Docker role with BSD tar (macOS)
+          command: tar -xzf /tmp/docker-role-master.tar.gz -C "{{ playbook_dir }}/../.external-roles"
+          when: gtar_check.rc != 0
+
+        - name: Clean up Docker role archive
+          file:
+            path: /tmp/docker-role-master.tar.gz
+            state: absent
 
         - name: Create symlink for geerlingguy.docker role
           file:
@@ -90,11 +109,30 @@
             path: "{{ playbook_dir }}/../.external-tools/claude-code-mcp-management-main"
             state: absent
 
-        - name: Download latest claude-code-mcp-management
-          unarchive:
-            src: "https://github.com/ksamaschke/claude-code-mcp-management/archive/main.tar.gz"
-            dest: "{{ playbook_dir }}/../.external-tools"
-            remote_src: true
+        - name: Check if GNU tar is available for MCP
+          command: which gtar
+          register: gtar_check_mcp
+          failed_when: false
+          changed_when: false
+
+        - name: Download MCP management archive
+          get_url:
+            url: "https://github.com/ksamaschke/claude-code-mcp-management/archive/main.tar.gz"
+            dest: "/tmp/mcp-management-main.tar.gz"
+            timeout: 30
+
+        - name: Extract MCP management with GNU tar
+          command: gtar -xzf /tmp/mcp-management-main.tar.gz -C "{{ playbook_dir }}/../.external-tools"
+          when: gtar_check_mcp.rc == 0
+
+        - name: Extract MCP management with BSD tar (macOS)
+          command: tar -xzf /tmp/mcp-management-main.tar.gz -C "{{ playbook_dir }}/../.external-tools"
+          when: gtar_check_mcp.rc != 0
+
+        - name: Clean up MCP management archive
+          file:
+            path: /tmp/mcp-management-main.tar.gz
+            state: absent
 
         - name: Save MCP management version
           copy:

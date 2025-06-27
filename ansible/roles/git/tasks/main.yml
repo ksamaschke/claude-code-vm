@@ -64,7 +64,7 @@
         echo "      \"username\": \"${GITHUB_USERNAME}\","
         echo "      \"pat\": \"${GITHUB_PAT}\","
         echo "      \"host\": \"github.com\""
-        echo -n "    }"
+        printf "    }"
       fi
       
       if [ -n "${GITLAB_USERNAME:-}" ] && [ -n "${GITLAB_PAT:-}" ]; then
@@ -75,7 +75,7 @@
         echo "      \"username\": \"${GITLAB_USERNAME}\","
         echo "      \"pat\": \"${GITLAB_PAT}\","
         echo "      \"host\": \"gitlab.com\""
-        echo -n "    }"
+        printf "    }"
       fi
       
       # Handle custom Git servers (GIT_*_URL pattern)
@@ -100,7 +100,7 @@
           echo "      \"username\": \"${username}\","
           echo "      \"pat\": \"${pat}\","
           echo "      \"host\": \"$(echo ${url} | sed 's|^https\?://||' | sed 's|/.*||')\""
-          echo -n "    }"
+          printf "    }"
         fi
       done
       
@@ -120,10 +120,27 @@
     - git
     - env-file
 
-- name: Parse environment variables
+- name: Parse environment variables - default case
   set_fact:
-    env_vars: "{{ env_vars_result.stdout | from_json if (use_env_file and env_file_stat.stat.exists and env_vars_result.stdout) else {'git_servers': []} }}"
-  when: use_env_file
+    env_vars:
+      git_servers: []
+  when: (use_env_file or custom_git_config_file is defined) and (not env_file_stat.stat.exists or env_vars_result.stdout is not defined)
+  tags:
+    - git
+    - env-file
+
+- name: Debug env_vars_result
+  debug:
+    var: env_vars_result
+  when: (use_env_file or custom_git_config_file is defined) and env_file_stat.stat.exists
+  tags:
+    - git
+    - env-file
+
+- name: Parse environment variables - from file
+  set_fact:
+    env_vars: "{{ env_vars_result.stdout | from_json }}"
+  when: (use_env_file or custom_git_config_file is defined) and env_file_stat.stat.exists and env_vars_result.stdout is defined
   tags:
     - git
     - env-file

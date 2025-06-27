@@ -186,11 +186,12 @@
   debug:
     msg:
       - "Post-clone command executed for {{ repo_name }}"
-      - "Command: {{ repository.post_clone }}"
-      - "Exit code: {{ post_clone_result.rc }}"
-      - "Output: {{ post_clone_result.stdout }}"
+      - "Command: {{ repository.post_clone | default('N/A') }}"
+      - "Exit code: {{ post_clone_result.rc | default('N/A') }}"
+      - "Output: {{ post_clone_result.stdout | default('N/A') }}"
   when: 
     - post_clone_result is defined
+    - post_clone_result.rc is defined
     - git_repos_show_details
   tags:
     - git-repos

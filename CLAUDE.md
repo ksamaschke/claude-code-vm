@@ -1,288 +1,163 @@
-# CLAUDE.md
+# CLAUDE.md - Claude Code VM Deployment System
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file guides Claude Code when working with this Ansible-based deployment system for setting up development environments on remote Debian VMs.
 
-## Project Architecture
+## 🎯 Project Purpose
 
-This repository contains an **Ansible-based deployment system** that automates the setup of complete development environments on **remote Debian VMs**. You run this system from your local machine to deploy development tools to target VMs. The architecture follows Ansible best practices with a role-based structure for modular deployment.
+This project automates the deployment of Claude Code and associated development tools to remote Debian VMs. It creates fully-configured development environments with Git, Docker, Kubernetes, and AI-enhanced capabilities through MCP servers.
 
-### Core Components
+**Key Point**: This runs on your LOCAL machine to deploy TO remote VMs. It does NOT run on the target VMs themselves.
 
-- **Ansible Playbooks**: Main orchestration (`ansible/playbooks/site.yml`)
-- **Role-based Architecture**: Modular components in `ansible/roles/`
-  - `common`: System preparation and updates
-  - `git`: Git with credential management for multiple hosting services  
-  - `docker`: Docker CE with Docker Compose
-  - `nodejs`: Node.js 22 LTS with npm global packages
-  - `claude-code`: Claude Code CLI installation
-  - `kubernetes`: kubectl, k3s (preselected), kind (optional), kompose with bash completions
-  - `mcp`: MCP server configuration and deployment
-- **Environment Configuration**: Git credential system via `.env` file (created from `config/env.example`)
+## 🏗️ Architecture Overview
 
-### Git Credential System
+### Project Structure
+```
+claude-code-vm/
+├── config/                     # Default configuration templates
+│   ├── env.example            # Template for credentials and API keys
+│   ├── mcp-servers.template.json  # MCP server definitions
+│   └── git-repos.env.example  # Git repository management template
+├── ansible/
+│   ├── playbooks/             # Main orchestration
+│   │   ├── site.yml          # Primary deployment playbook
+│   │   └── validate.yml      # Validation playbook
+│   └── roles/                 # Modular components
+│       ├── common/           # System preparation
+│       ├── git/              # Git + credential management
+│       ├── docker/           # Docker CE installation
+│       ├── nodejs/           # Node.js 22 LTS
+│       ├── claude-code/      # Claude Code CLI
+│       ├── kubernetes/       # k8s tools (kubectl, k3s/kind)
+│       └── mcp/              # MCP server configuration
+└── Makefile                   # User interface for all operations
+```
 
-The project implements a flexible credential management system supporting multiple Git hosting services through environment variables:
+### Configuration Defaults
+- **ENV_FILE**: `config/.env` (Git credentials, API keys)
+- **MCP_FILE**: `config/mcp-servers.json` (MCP server definitions)
+- **GIT_CONFIG_FILE**: Same as ENV_FILE (repository definitions)
 
-**Well-known providers (URL automatic):**
-- `GITHUB_USERNAME` and `GITHUB_PAT` for GitHub.com
-- `GITLAB_USERNAME` and `GITLAB_PAT` for GitLab.com
+## 🚀 Essential Commands
 
-**Custom/Self-hosted servers:**
-- Pattern: `GIT_{NAME}_{FIELD}` where NAME is your choice
-- `GIT_{NAME}_URL`, `GIT_{NAME}_USERNAME`, `GIT_{NAME}_PAT`
+### Initial Setup
+```bash
+make setup                    # Create config files from templates
+make check-config            # Validate configuration
+make test-connection VM_HOST=<ip> TARGET_USER=<user>  # Test SSH
+```
 
-Supports GitHub, GitLab, Azure DevOps, GitHub Enterprise, and any custom Git servers.
+### Deployment Tiers
+```bash
+# Tier 1: Minimal (Git + Node.js + Claude Code)
+make deploy-baseline VM_HOST=<ip> TARGET_USER=<user>
+
+# Tier 2: Enhanced (+ 11 MCP servers + Docker)
+make deploy-enhanced VM_HOST=<ip> TARGET_USER=<user>
+
+# Tier 3: Containerized (+ Docker Compose + shell enhancements)
+make deploy-containerized VM_HOST=<ip> TARGET_USER=<user>
+
+# Tier 4: Full (+ Kubernetes with k3s/KIND)
+make deploy-full VM_HOST=<ip> TARGET_USER=<user>
+```
+
+### Common Operations
+```bash
+# Validate deployment
+make validate VM_HOST=<ip> TARGET_USER=<user>
+
+# Deploy only MCP servers
+make deploy-mcp VM_HOST=<ip> TARGET_USER=<user>
+
+# Deploy Git repositories
+make deploy-git-repos VM_HOST=<ip> TARGET_USER=<user>
+
+# Clean temporary files
+make clean
+```
+
+## 🔧 Working with Configuration
+
+### Using External Config Files
+```bash
+# Use configs from another location
+make deploy-enhanced VM_HOST=<ip> TARGET_USER=<user> \
+  ENV_FILE=/path/to/.env \
+  MCP_FILE=/path/to/mcp-servers.json
+```
 
 ### Git Repository Management
-
-The system includes automated repository cloning and management features:
-
-**Repository Configuration:**
-- `GIT_REPO_{NUMBER}_URL` - Repository URL (required)
-- `GIT_REPO_{NUMBER}_BRANCH` - Specific branch to checkout
-- `GIT_REPO_{NUMBER}_DIR` - Custom directory name
-- `GIT_REPO_{NUMBER}_DEPTH` - Clone depth for shallow clones
-
-**Advanced Configuration:**
-- `GIT_REPO_{NUMBER}_CONFIG_{KEY}` - Per-repository Git configuration
-- `GIT_REPO_{NUMBER}_REMOTE_{NAME}` - Additional remote repositories
-- `GIT_REPO_{NUMBER}_POST_CLONE` - Commands to execute after cloning
-
-**Management Options:**
-- `MANAGE_GIT_REPOSITORIES="true"` - Enable repository management
-- `GIT_REPOS_BASE_DIR` - Base directory for all repositories
-- `GIT_DEFAULT_BRANCH` - Default branch for all repositories
-- `GIT_UPDATE_EXISTING` - Update existing repositories on subsequent runs
-
-### Deployment Target Architecture
-
-This system deploys to **remote Debian VMs**, not your local machine. The deployment includes:
-- Core development tools (Git, Node.js)
-- Optional containerization (Docker, Docker Compose)
-- Optional Kubernetes tools (kubectl, k3s, kind, kompose)
-- Claude Code CLI installation on the target VM
-- Credential management for Git hosting services
-- Optional MCP server configuration for the remote Claude Code installation
-
-## Essential Commands
-
-### 4-Tier Deployment System
-
-The deployment system offers four distinct tiers, each building upon the previous:
-
 ```bash
-# Setup (run once)
-make setup                                              # First-time setup, creates .env from template
-make check-config                                       # Validate configuration
-make test-connection VM_HOST=<ip> TARGET_USER=<user>   # Test SSH connectivity to target VM
+# Simple format in .env or git config file
+GITHUB_URL=https://github.com/user/repo.git
+# OR
+GIT_REPO_1_URL=https://github.com/user/repo.git
+GIT_REPO_1_BRANCH=main
 
-# Tier 1: Baseline - Git + Node.js + Claude Code + uvx
-make deploy-baseline VM_HOST=<ip> TARGET_USER=<user>    # Minimal core development environment
-
-# Tier 2: Enhanced - Baseline + MCPs + Docker
-make deploy-enhanced VM_HOST=<ip> TARGET_USER=<user>    # Adds MCP servers and Docker (needed for many MCPs)
-
-# Tier 3: Containerized - Enhanced + Docker Compose + bashrc integrations
-make deploy-containerized VM_HOST=<ip> TARGET_USER=<user> # Adds container orchestration and shell enhancements
-
-# Tier 4: Full - Everything + Kubernetes + comprehensive bashrc
-make deploy-full VM_HOST=<ip> TARGET_USER=<user>        # Complete development stack with k3s (default)
-make deploy-full VM_HOST=<ip> TARGET_USER=<user> KUBERNETES_BACKEND=kind # Use KIND instead of k3s
-
-# Validation
-make validate VM_HOST=<ip> TARGET_USER=<user>           # Verify all components on remote VM
+# Deploy with repository cloning
+make deploy-enhanced VM_HOST=<ip> TARGET_USER=<user> \
+  MANAGE_GIT_REPOSITORIES=true
 ```
 
-### Advanced Configuration Options
+## 📝 AI Agent Guidelines
+
+When modifying this project:
+
+1. **Use Make targets** - Don't run ansible-playbook directly unless necessary
+2. **Test changes** - Always run `make check-config` before deployment
+3. **Configuration priority**:
+   - Command-line parameters override everything
+   - config/ directory contains defaults
+   - Never hardcode sensitive information
+4. **Error handling** - Check the colored output from Make commands
+5. **Validation** - Always run `make validate` after deployments
+
+### Common Tasks
+
+**Adding a new MCP server**:
+1. Edit the MCP template: `config/mcp-servers.template.json`
+2. Add any required API keys to `config/env.example`
+3. Update documentation in README.md
+
+**Debugging deployment issues**:
 ```bash
-# Git repository management
-make deploy-enhanced VM_HOST=<ip> TARGET_USER=<user> MANAGE_GIT_REPOSITORIES=true
-make deploy-enhanced VM_HOST=<ip> TARGET_USER=<user> GIT_CONFIG_FILE=.git-repos.env
+# Use verbose mode
+make deploy-enhanced VM_HOST=<ip> TARGET_USER=<user> VERBOSE=vv
 
-# Kubernetes backend selection
-make deploy-full VM_HOST=<ip> TARGET_USER=<user> KUBERNETES_BACKEND=k3s    # Default
-make deploy-full VM_HOST=<ip> TARGET_USER=<user> KUBERNETES_BACKEND=kind   # Alternative
+# Check logs
+tail -f deployment.log
 
-# Component-specific deployment (use Ansible directly)
-ansible-playbook ansible/playbooks/site.yml --tags git,git-repos -e vm_host=<ip> -e target_vm_user=<user>
-ansible-playbook ansible/playbooks/site.yml --tags docker -e vm_host=<ip> -e target_vm_user=<user> -e install_docker=true
-ansible-playbook ansible/playbooks/site.yml --tags kubernetes -e vm_host=<ip> -e target_vm_user=<user> -e install_kubectl=true
-ansible-playbook ansible/playbooks/site.yml --tags bashrc -e vm_host=<ip> -e target_vm_user=<user> -e enable_bashrc_integrations=true
+# Test specific components
+ansible-playbook ansible/playbooks/site.yml --tags docker --check
 ```
 
-### Maintenance and Updates
-```bash
-# Update configurations on target VM (redeploy same tier)
-make deploy-baseline VM_HOST=<ip> TARGET_USER=<user>     # Update baseline components
-make deploy-enhanced VM_HOST=<ip> TARGET_USER=<user>     # Update enhanced components
-make deploy-containerized VM_HOST=<ip> TARGET_USER=<user> # Update containerized components
-make deploy-full VM_HOST=<ip> TARGET_USER=<user>         # Update full deployment
+**Updating components**:
+- Node.js version: Edit `ansible/inventories/production/group_vars/all.yml`
+- MCP servers: Edit MCP configuration and run `make deploy-mcp`
+- Git repos: Update config file and run `make deploy-git-repos`
 
-# Validate after changes
-make validate VM_HOST=<ip> TARGET_USER=<user>           # Verify all components
+## 🎨 MCP Servers Included
 
-# MCP Management (for target VM configuration)
-cd tools/claude-code-mcp-management
-make help                                               # Show available MCP management commands
-```
+The system deploys 11 pre-configured MCP servers:
+- **Search/Web**: brave-search, github, gitlab-public
+- **AI Tools**: memory, sequential-thinking, Context7
+- **Documents**: doc-forge, pdf-reader, document-operations
+- **Automation**: puppeteer, puppeteer-docker
 
-### Validation and Testing
-```bash
-make validate                 # Complete deployment validation
-make test-connection         # Test SSH connectivity to target VM
-make clean                   # Clean up temporary files and logs
+## ⚠️ Important Notes
 
-# Ansible validation
-ansible-playbook --syntax-check ansible/playbooks/site.yml
-ansible-playbook --check --diff ansible/playbooks/site.yml
-ansible debian-vm -m ping
-```
+1. **Dynamic Inventory**: The Makefile creates temporary inventories - don't edit `hosts.yml` directly
+2. **External Dependencies**: Automatically downloaded to `.external-tools/` and `.external-roles/`
+3. **Sensitive Data**: Keep credentials in external files, never commit them
+4. **Validation**: The MCP management tool's validation is used, not custom implementations
 
-### Debugging and Troubleshooting
-```bash
-# Verbose deployment
-ansible-playbook ansible/playbooks/site.yml -v    # Verbose
-ansible-playbook ansible/playbooks/site.yml -vv   # More verbose
-ansible-playbook ansible/playbooks/site.yml -vvv  # Very verbose
+## 🐛 Troubleshooting
 
-# Debug specific issues
-make clean                    # Clean up temporary files and logs
-tail -f deployment.log        # Monitor deployment logs
-```
+If deployment fails:
+1. Run `make test-connection` to verify SSH access
+2. Check `deployment.log` for detailed errors
+3. Ensure target VM is Debian 12+ with sudo access
+4. Verify all required API keys are in your .env file
+5. For MCP issues, check with `make list-remote SSH_HOST=<ip> SSH_USER=<user>`
 
-### Direct Ansible Commands
-```bash
-# Core playbook execution
-ansible-playbook playbooks/site.yml
-ansible-playbook playbooks/validate.yml
-
-# Tag-based selective deployment
-ansible-playbook playbooks/site.yml --tags git
-ansible-playbook playbooks/site.yml --tags docker,kubernetes
-ansible-playbook playbooks/site.yml --tags credentials,pats
-
-# Testing and validation
-ansible-playbook --syntax-check playbooks/site.yml
-ansible-playbook --check --diff playbooks/site.yml
-ansible debian-vm -m ping
-```
-
-## Configuration Requirements
-
-### Prerequisites
-1. **Local machine (control machine)**: Ansible installed
-2. **Target VM**: Debian 12+ (Bookworm) with SSH access
-3. **SSH access**: Key-based or password authentication to target VM
-4. **Sudo privileges**: Target user must have sudo access on the VM
-5. **Configuration**: `.env` file with Git credentials (use `make setup` to create from template)
-
-### Critical Configuration Files
-- `ansible/inventories/production/hosts.yml`: Target VM configuration
-- `ansible/inventories/production/group_vars/all.yml`: Component versions and settings
-- `.env`: Git credentials, PATs, and MCP API keys (create from `config/env.example`)
-- `mcp-servers.json`: MCP server configuration
-- `config/mcp-servers.template.json`: Template for MCP server configuration
-
-### Environment Variables Setup
-1. Copy template: `cp config/env.example .env`
-2. Edit `.env` with your Git hosting service credentials
-3. Required: At least one Git server configuration (GITHUB_USERNAME/GITHUB_PAT or custom GIT_* variables)
-4. Optional: MCP API keys (will be configured on the target VM for Claude Code)
-
-The system automatically configures Git servers on the target VM based on environment variables.
-
-## Deployment Workflow
-
-1. **First-time setup**: `make setup` → edit `.env` → `make check-config`
-2. **Test connectivity**: `make test-connection VM_HOST=192.168.1.100 TARGET_USER=developer`
-3. **Choose deployment type**:
-   - Base system: `make deploy-base VM_HOST=192.168.1.100 TARGET_USER=developer`
-   - Full system: `make deploy VM_HOST=192.168.1.100 TARGET_USER=developer`
-4. **Validate remote deployment**: `make validate VM_HOST=192.168.1.100 TARGET_USER=developer`
-5. **Update configuration**: Edit `.env` → redeploy with appropriate make command
-
-**Important**: All deployment happens TO the target VM, not on your local machine. The Makefile provides colored output and comprehensive help via `make help`.
-
-### Git Repository Management Usage
-
-**Option 1: Using main .env file**
-```bash
-# Edit .env file to include repository definitions and enable management
-MANAGE_GIT_REPOSITORIES="true"
-GIT_REPO_1_URL="https://github.com/yourusername/project1.git"
-GIT_REPO_2_URL="https://github.com/yourusername/project2.git"
-GIT_REPO_2_BRANCH="develop"
-
-# Deploy with repository management enabled
-make deploy-enhanced VM_HOST=192.168.1.100 TARGET_USER=developer MANAGE_GIT_REPOSITORIES=true
-```
-
-**Option 2: Using separate Git configuration file**
-```bash
-# Create dedicated Git configuration file
-cp config/git-repos.env.example .git-repos.env
-# Edit .git-repos.env with your repositories
-
-# Deploy using separate Git config file
-make deploy-enhanced VM_HOST=192.168.1.100 TARGET_USER=developer GIT_CONFIG_FILE=.git-repos.env MANAGE_GIT_REPOSITORIES=true
-```
-
-**Option 3: Repository management only**
-```bash
-# Deploy only Git repository management (requires existing Git setup)
-ansible-playbook ansible/playbooks/site.yml --tags git-repos -e vm_host=192.168.1.100 -e target_vm_user=developer -e manage_git_repositories=true
-```
-
-## Post-Deployment (What Gets Installed on Target VM)
-
-### Tier 1: Baseline Deployment (`deploy-baseline`)
-- **System preparation**: Package updates, locale configuration, essential packages
-- **Git**: Configured with encrypted credential storage for all defined hosting services
-- **Git repository management** (optional): Automatic repository cloning and configuration
-- **Node.js 22 LTS**: With npm global configuration and PATH setup
-- **Claude Code CLI**: Installed globally via npm and ready to use
-- **uvx**: Python package runner for isolated tool execution
-
-### Tier 2: Enhanced Deployment (`deploy-enhanced`)
-- **Everything from Tier 1**
-- **MCP servers**: Configured based on your mcp-servers.json with environment variables
-- **Docker**: Running without sudo for the target user (needed for many MCP servers)
-- **Docker group integration**: User added to docker group for passwordless container management
-
-### Tier 3: Containerized Deployment (`deploy-containerized`)
-- **Everything from Tier 2**
-- **Docker Compose**: Latest version with proper binary installation and dynamic version resolution
-- **Enhanced bashrc**: Docker aliases, shortcuts, and productivity enhancements
-- **Shell integrations**: Comprehensive aliases for Docker commands (dps, dcp, dcup, etc.)
-
-### Tier 4: Full Deployment (`deploy-full`)
-- **Everything from Tier 3**
-- **Kubernetes tools**: kubectl, k3s (default) or KIND, kompose, helm with bash completions
-- **k3s cluster** (default): Production-ready Kubernetes with NGINX Ingress Controller
-- **KIND cluster** (optional): Development-focused Kubernetes in Docker
-- **Comprehensive bashrc**: Kubernetes aliases, kubectl completions, custom functions
-- **Development enhancements**: Advanced shell functions for container and cluster management
-- **User CLAUDE.md configuration**: Environment-specific guidance on target VM
-
-### Component Details
-
-**Bashrc Integrations (Tiers 3 & 4):**
-- Docker aliases: `dps`, `dpa`, `di`, `drm`, `dexec`, `dlogs`, `dcp`, `dcup`, `dcdown`
-- Kubernetes aliases: `k`, `kgp`, `kgs`, `kgd`, `kdesc`, `klogs`, `kexec`, `kapply`
-- Custom functions: `drun`, `kctx`, `kns`, `cdls`, `ff`
-- Auto-completions for kubectl and Docker
-- Development shortcuts and productivity enhancements
-
-**Kubernetes Backend Options (Tier 4):**
-- **k3s** (default): Lightweight, production-ready Kubernetes with built-in load balancer
-- **KIND** (optional): Kubernetes in Docker, ideal for development and testing
-
-### User CLAUDE.md Configuration (on Target VM)
-
-The deployment can optionally create `~/.claude/CLAUDE.md` on the target VM containing:
-- **Environment Overview**: What was actually deployed (k3s/KIND/Docker)
-- **Command Execution Policy**: Remote command execution settings
-- **Git Workflow**: Branch policy with required .gitignore patterns
-- **Quick Reference**: Aliases, paths, and environment-specific commands
-
-**Important**: Users on the target VM must log out/in or run `source ~/.bashrc` to update PATH and group memberships after deployment.
+Remember: This project follows Ansible best practices and uses Make as the primary interface to ensure consistent, reliable deployments.

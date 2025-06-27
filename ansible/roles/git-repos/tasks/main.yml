@@ -60,11 +60,39 @@
       echo "  \"git_setup_hooks\": \"${GIT_SETUP_HOOKS:-false}\","
       echo "  \"repositories\": ["
       
-      # Find all repository definitions - support both GIT_REPO_URL and GIT_REPO_1_URL formats
+      # Find all repository definitions - support multiple formats
       numbered_repos=$(grep '^GIT_REPO_[0-9]\+_URL=' "{{ git_config_file_path }}" | sed 's/GIT_REPO_//g' | sed 's/_URL=.*//g' | sort -n)
       single_repo=$(grep '^GIT_REPO_URL=' "{{ git_config_file_path }}" | head -1)
       
+      # Also check for simpler patterns like GITHUB_URL, GITLAB_URL, GIT_URL
+      github_url=$(grep '^GITHUB_URL=' "{{ git_config_file_path }}" | head -1)
+      gitlab_url=$(grep '^GITLAB_URL=' "{{ git_config_file_path }}" | head -1)
+      git_url=$(grep '^GIT_URL=' "{{ git_config_file_path }}" | head -1)
+      
       first=true
+      
+      # Handle simpler URL patterns first (GITHUB_URL, GITLAB_URL, GIT_URL)
+      if [ -n "$github_url" ] || [ -n "$gitlab_url" ] || [ -n "$git_url" ]; then
+        # Use whichever is defined
+        if [ -n "$github_url" ]; then
+          url=$(eval echo \$GITHUB_URL)
+        elif [ -n "$gitlab_url" ]; then
+          url=$(eval echo \$GITLAB_URL)
+        else
+          url=$(eval echo \$GIT_URL)
+        fi
+        
+        if [ -n "$url" ]; then
+          if [ "$first" = true ]; then first=false; else echo ","; fi
+          echo "    {"
+          echo "      \"number\": \"1\","
+          echo "      \"url\": \"${url}\","
+          echo "      \"branch\": \"\","
+          echo "      \"dir\": \"\","
+          echo "      \"depth\": \"\""
+          printf "    }"
+        fi
+      fi
       
       # Handle single repository (GIT_REPO_URL format)
       if [ -n "$single_repo" ]; then
@@ -122,7 +150,7 @@
             echo "      ,\"post_clone\": \"${post_clone_escaped}\""
           fi
           
-          echo -n "    }"
+          printf "    }"
         fi
       fi
       
@@ -192,7 +220,7 @@
             echo "      ,\"post_clone\": \"${post_clone_escaped}\""
           fi
           
-          echo -n "    }"
+          printf "    }"
         fi
       done
       
@@ -212,10 +240,19 @@
     - git-repos
     - config-file
 
-- name: Parse Git repository configuration
+- name: Parse Git repository configuration - default case
   set_fact:
-    git_repo_config: "{{ git_config_result.stdout | from_json if (use_git_config_file and git_config_file_stat.stat.exists and git_config_result.stdout) else {'repositories': []} }}"
-  when: use_git_config_file
+    git_repo_config:
+      repositories: []
+  when: use_git_config_file and (not git_config_file_stat.stat.exists or git_config_result.stdout is not defined)
+  tags:
+    - git-repos
+    - config-file
+
+- name: Parse Git repository configuration - from file
+  set_fact:
+    git_repo_config: "{{ git_config_result.stdout | from_json }}"
+  when: use_git_config_file and git_config_file_stat.stat.exists and git_config_result.stdout is defined
   tags:
     - git-repos
     - config-file
