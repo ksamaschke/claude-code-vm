@@ -16,7 +16,12 @@ claude-code-vm/
 ├── config/                     # Default configuration templates
 │   ├── env.example            # Template for credentials and API keys
 │   ├── mcp-servers.template.json  # MCP server definitions
-│   └── git-repos.env.example  # Git repository management template
+│   ├── git-repos.env.example  # Git repository management template
+│   ├── CLAUDE.common.md       # Base CLAUDE.md template (shared by all)
+│   ├── CLAUDE.minimal.md      # Minimal deployment template
+│   ├── CLAUDE.enhanced.md     # Enhanced deployment with MCP/Docker
+│   ├── CLAUDE.containerized.md # Containerized with Docker Compose
+│   └── CLAUDE.full.md         # Full deployment with Kubernetes
 ├── ansible/
 │   ├── playbooks/             # Main orchestration
 │   │   ├── site.yml          # Primary deployment playbook
@@ -28,7 +33,8 @@ claude-code-vm/
 │       ├── nodejs/           # Node.js 22 LTS
 │       ├── claude-code/      # Claude Code CLI
 │       ├── kubernetes/       # k8s tools (kubectl, k3s/kind)
-│       └── mcp/              # MCP server configuration
+│       ├── mcp/              # MCP server configuration
+│       └── claude-config/    # CLAUDE.md deployment and inheritance
 └── Makefile                   # User interface for all operations
 ```
 
