@@ -72,6 +72,9 @@ make deploy-full VM_HOST=<ip> TARGET_USER=<user>
 # Validate deployment
 make validate VM_HOST=<ip> TARGET_USER=<user>
 
+# Deploy CLAUDE.md configuration only
+make deploy-claude-config VM_HOST=<ip> TARGET_USER=<user>
+
 # Deploy only MCP servers
 make deploy-mcp VM_HOST=<ip> TARGET_USER=<user>
 
@@ -90,6 +93,20 @@ make clean
 make deploy-enhanced VM_HOST=<ip> TARGET_USER=<user> \
   ENV_FILE=/path/to/.env \
   MCP_FILE=/path/to/mcp-servers.json
+```
+
+### CLAUDE Configuration Management
+```bash
+# Deploy with auto-detected template
+make deploy-claude-config VM_HOST=<ip> TARGET_USER=<user>
+
+# Deploy with specific template
+make deploy-claude-config VM_HOST=<ip> TARGET_USER=<user> \
+  CLAUDE_CONFIG_TEMPLATE=config/CLAUDE.full.md
+
+# Force override existing CLAUDE.md
+make deploy-claude-config VM_HOST=<ip> TARGET_USER=<user> \
+  CLAUDE_CONFIG_FORCE_OVERRIDE=true
 ```
 
 ### Git Repository Management

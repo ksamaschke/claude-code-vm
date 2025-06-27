@@ -16,10 +16,13 @@ make setup
 nano .env  # Add Git credentials and MCP API keys
 
 # Choose your deployment tier
-make deploy-baseline VM_HOST=192.168.1.100 TARGET_USER=developer      # Minimal
-make deploy-enhanced VM_HOST=192.168.1.100 TARGET_USER=developer       # + MCPs + Docker
-make deploy-containerized VM_HOST=192.168.1.100 TARGET_USER=developer  # + Docker Compose + shell
-make deploy-full VM_HOST=192.168.1.100 TARGET_USER=developer           # + Kubernetes + everything
+make deploy-baseline VM_HOST=192.168.1.100 TARGET_USER=developer         # Minimal
+make deploy-enhanced VM_HOST=192.168.1.100 TARGET_USER=developer         # + MCPs + Docker
+make deploy-containerized VM_HOST=192.168.1.100 TARGET_USER=developer    # + Docker Compose + shell
+make deploy-full VM_HOST=192.168.1.100 TARGET_USER=developer             # + Kubernetes + everything
+
+# Or deploy specific components
+make deploy-claude-config VM_HOST=192.168.1.100 TARGET_USER=developer    # CLAUDE.md only
 ```
 
 ## 🏗️ 4-Tier Deployment Architecture
@@ -171,16 +174,11 @@ make deploy-enhanced        # Tier 2: Baseline + MCPs + Docker
 make deploy-containerized   # Tier 3: Enhanced + Docker Compose + bashrc
 make deploy-full           # Tier 4: Everything + Kubernetes + comprehensive tooling
 
-# Legacy aliases (backward compatibility)
-make deploy-base           # Alias for deploy-enhanced
-make deploy                # Alias for deploy-full
-
-# MCP management
-make deploy-mcp           # Deploy/update MCP servers on target VM
+# Component-specific deployments
+make deploy-claude-config   # Deploy CLAUDE.md configuration only
+make deploy-mcp            # Deploy/update MCP servers on target VM
+make deploy-git-repos      # Clone and manage Git repositories on target VM
 make list-remote SSH_HOST=<ip> SSH_USER=<user>  # List MCP servers on remote VM
-
-# Git repository management
-make deploy-git-repos     # Clone and manage Git repositories on target VM
 ```
 
 ### 4. Claude Configuration (CLAUDE.md)
@@ -199,13 +197,13 @@ The system automatically deploys a `CLAUDE.md` file to `~/.claude/CLAUDE.md` on 
 make deploy-enhanced VM_HOST=192.168.1.100 TARGET_USER=dev
 # Deploys config/CLAUDE.enhanced.md automatically
 
-# Custom template
-make deploy VM_HOST=192.168.1.100 TARGET_USER=dev \
-  EXTRA_VARS="claude_config_template=config/CLAUDE.custom.md"
+# Deploy CLAUDE.md only with custom template
+make deploy-claude-config VM_HOST=192.168.1.100 TARGET_USER=dev \
+  CLAUDE_CONFIG_TEMPLATE=config/CLAUDE.custom.md
 
-# Force override existing
-make deploy VM_HOST=192.168.1.100 TARGET_USER=dev \
-  EXTRA_VARS="claude_config_force_override=true"
+# Force override existing CLAUDE.md
+make deploy-claude-config VM_HOST=192.168.1.100 TARGET_USER=dev \
+  CLAUDE_CONFIG_FORCE_OVERRIDE=true
 ```
 
 See [docs/claude-config.md](docs/claude-config.md) for detailed documentation.
@@ -371,20 +369,20 @@ uvx --version
 - **[Git Configuration](docs/git-configuration.md)** - Multi-provider Git setup
 - **[Authentication Guide](docs/authentication.md)** - SSH keys, passwords, security
 
-## 🔄 Migration & Compatibility
+## 🔧 Component-Specific Deployments
 
-### Legacy Command Support
-The new 4-tier system maintains backward compatibility:
-- `make deploy-base` → `make deploy-enhanced` (legacy alias)
-- `make deploy` → `make deploy-full` (legacy alias)
-
-### Upgrading Existing Deployments
+### CLAUDE Configuration Management
 ```bash
-# From old deploy-base to new enhanced
-make deploy-enhanced VM_HOST=192.168.1.100 TARGET_USER=dev
+# Deploy CLAUDE.md with auto-detected template
+make deploy-claude-config VM_HOST=192.168.1.100 TARGET_USER=dev
 
-# From old deploy to new full with k3s
-make deploy-full VM_HOST=192.168.1.100 TARGET_USER=dev KUBERNETES_BACKEND=k3s
+# Deploy specific CLAUDE template
+make deploy-claude-config VM_HOST=192.168.1.100 TARGET_USER=dev \
+  CLAUDE_CONFIG_TEMPLATE=config/CLAUDE.full.md
+
+# Force override existing CLAUDE.md
+make deploy-claude-config VM_HOST=192.168.1.100 TARGET_USER=dev \
+  CLAUDE_CONFIG_FORCE_OVERRIDE=true
 ```
 
 ## 📄 License
