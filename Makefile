@@ -6,7 +6,7 @@
 # 
 # Usage Examples:
 #   make deploy-full VM_HOST=192.168.1.100 TARGET_USER=dev      # Full deployment
-#   make deploy-claude-config VM_HOST=192.168.1.100 TARGET_USER=dev  # CLAUDE.md only
+#   make deploy-claude-config VM_HOST=192.168.1.100 TARGET_USER=dev  # CLAUDE.md and settings.json
 #   make validate VM_HOST=192.168.1.100 TARGET_USER=dev         # Validate deployment
 #   make setup                                                  # First-time setup
 #
@@ -192,9 +192,10 @@ help: ## Show this help message
 	@echo "  $(CYAN)make deploy-full VM_HOST=192.168.1.100 TARGET_USER=developer KUBERNETES_BACKEND=kind$(NC)"
 	@echo ""
 	@echo "$(WHITE)⚙️ Component-Specific Deployments:$(NC)"
-	@echo "  $(CYAN)# Deploy CLAUDE.md configuration only:$(NC)"
+	@echo "  $(CYAN)# Deploy CLAUDE.md and settings.json:$(NC)"
 	@echo "  $(CYAN)make deploy-claude-config VM_HOST=192.168.1.100 TARGET_USER=developer$(NC)"
 	@echo "  $(CYAN)make deploy-claude-config VM_HOST=192.168.1.100 TARGET_USER=developer CLAUDE_CONFIG_TEMPLATE=config/CLAUDE.full.md$(NC)"
+	@echo "  $(CYAN)make deploy-claude-config VM_HOST=localhost TARGET_USER=\$$USER$(NC)"
 	@echo ""
 	@echo "  $(CYAN)# Deploy MCP servers only:$(NC)"
 	@echo "  $(CYAN)make deploy-mcp VM_HOST=192.168.1.100 TARGET_USER=developer$(NC)"

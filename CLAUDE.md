@@ -237,8 +237,9 @@ make deploy-claude-config VM_HOST=<ip> TARGET_USER=<user> \
 ```
 
 ### Default Rules Include
-- ✅ **Allowed**: Docker, Kubernetes, Git, Make, npm, file operations, web fetching
-- ❌ **Denied**: Destructive operations, privilege escalation, credential exposure, system shutdown
+- ✅ **Allowed**: Docker, Kubernetes, Git (branch/merge, no basic push), Make, npm, find, file operations, SSH to private networks (10.0.0.*, 192.168.*), project-safe rm -rf
+- ❌ **Denied**: Destructive operations, privilege escalation, credential exposure, system shutdown, force git push to main/master
+- ❓ **Not included**: Basic git push (neither allowed nor denied - requires explicit permission)
 
 ## ⚠️ Important Notes
 

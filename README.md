@@ -22,7 +22,7 @@ make deploy-containerized VM_HOST=192.168.1.100 TARGET_USER=developer    # + Doc
 make deploy-full VM_HOST=192.168.1.100 TARGET_USER=developer             # + Kubernetes + everything
 
 # Or deploy specific components
-make deploy-claude-config VM_HOST=192.168.1.100 TARGET_USER=developer    # CLAUDE.md only
+make deploy-claude-config VM_HOST=192.168.1.100 TARGET_USER=developer    # CLAUDE.md and settings.json
 ```
 
 ## 🏗️ 4-Tier Deployment Architecture
@@ -194,10 +194,13 @@ The system automatically deploys both `CLAUDE.md` and `settings.json` files to `
 - **Include processing**: Templates can include other templates for modularity
 
 **settings.json Features:**
-- **Comprehensive allow rules**: Safe operations for Docker, Kubernetes, Git, Make, and more
-- **Security-focused deny rules**: Blocks destructive operations, privilege escalation, and credential exposure
+- **500+ security rules**: Comprehensive allow/deny rules for safe VM operations
+- **Development-focused**: Docker, Kubernetes, Git (branch/merge), Make, npm, find, file operations
+- **Network access**: SSH/SCP to private networks (10.0.0.*, 192.168.1.*, 192.168.0.*)
+- **Project-safe cleanup**: rm -rf allowed within current directory (./* and ./*/*)
+- **Security boundaries**: Blocks destructive ops, privilege escalation, credential exposure
+- **Git safety**: Basic push excluded (requires explicit permission), force push to main/master denied
 - **Configurable**: Use your own template with `CLAUDE_SETTINGS_TEMPLATE` parameter
-- **Safe defaults**: Pre-configured for typical VM development tasks
 - **Inspired by**: [claude-settings](https://github.com/dwillitzer/claude-settings) project
 
 **Usage:**
