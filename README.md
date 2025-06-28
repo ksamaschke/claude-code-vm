@@ -107,7 +107,7 @@ config/
 ### First-Time Setup
 ```bash
 # 1. Clone the repository
-git clone https://github.com/yourusername/claude-code-vm.git
+git clone https://github.com/ksamaschke/claude-code-vm.git
 cd claude-code-vm
 
 # 2. Run setup to create default configuration
@@ -175,7 +175,7 @@ make deploy-containerized   # Tier 3: Enhanced + Docker Compose + bashrc
 make deploy-full           # Tier 4: Everything + Kubernetes + comprehensive tooling
 
 # Component-specific deployments
-make deploy-claude-config   # Deploy CLAUDE.md configuration only
+make deploy-claude-config   # Deploy CLAUDE.md configuration only (supports localhost)
 make deploy-mcp            # Deploy/update MCP servers on target VM
 make deploy-git-repos      # Clone and manage Git repositories on target VM
 make list-remote SSH_HOST=<ip> SSH_USER=<user>  # List MCP servers on remote VM
@@ -364,6 +364,8 @@ uvx --version
 ## 📚 Documentation
 
 - **[CLAUDE.md](CLAUDE.md)** - Complete deployment reference and architecture
+- **[Claude Config Deployment](docs/claude-config-deployment.md)** - deploy-claude-config usage and localhost support
+- **[Claude Configuration Guide](docs/claude-config.md)** - CLAUDE.md templates and customization
 - **[Ansible Configuration](docs/ansible-configuration.md)** - Variables and role documentation
 - **[MCP Server Setup](docs/components-mcp.md)** - AI extensions and API configuration
 - **[Git Configuration](docs/git-configuration.md)** - Multi-provider Git setup
@@ -383,7 +385,20 @@ make deploy-claude-config VM_HOST=192.168.1.100 TARGET_USER=dev \
 # Force override existing CLAUDE.md
 make deploy-claude-config VM_HOST=192.168.1.100 TARGET_USER=dev \
   CLAUDE_CONFIG_FORCE_OVERRIDE=true
+
+# Deploy to localhost (no SSH or Debian required)
+make deploy-claude-config VM_HOST=localhost TARGET_USER=$USER
 ```
+
+### Localhost Deployment Support
+The system automatically detects localhost deployments and adjusts accordingly:
+- No SSH authentication required for `VM_HOST=localhost` or `VM_HOST=127.0.0.1`
+- Uses Ansible local connection instead of SSH
+- Skips sudo requirements for local deployments
+- Ideal for testing configurations locally before remote deployment
+- In case of Claude Config and MCP Servers: No Debian required, works with any Linux or MacOS
+
+**Note**: Full stack deployments to localhost may have limitations on non-Debian systems.
 
 ## 📄 License
 

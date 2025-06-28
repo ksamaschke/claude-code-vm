@@ -67,6 +67,10 @@ PLAYBOOK_DIR := ansible/playbooks
 LIMIT_FLAG := $(if $(filter single,$(DEPLOY_TARGET)),--limit target,--limit $(DEPLOY_TARGET))
 EXTRA_VARS := vm_host=$(VM_HOST) vm_user=$(if $(and $(filter root,$(VM_USER)),$(TARGET_USER)),$(TARGET_USER),$(VM_USER)) target_vm_user=$(TARGET_USER) remote_deployment_dir=$(DEPLOYMENT_DIR) custom_session_name=$(SESSION_NAME)
 
+# Detect localhost deployment
+IS_LOCALHOST := $(filter localhost 127.0.0.1,$(VM_HOST))
+ANSIBLE_CONNECTION := $(if $(IS_LOCALHOST),--connection=local,)
+
 # Add authentication variables if provided
 ifneq ($(CONNECT_AS_TARGET),false)
 	EXTRA_VARS += connect_as_target_user=$(CONNECT_AS_TARGET)
@@ -323,9 +327,15 @@ check-config: ## Validate configuration and connectivity
 	@echo "$(GREEN)✅ Configuration check passed$(NC)"
 
 test-connection: ## Test network connectivity to target VM
-	@echo "$(WHITE)🎯 Testing connectivity to $(VM_HOST)...$(NC)"
-	@# Determine which user to use for SSH connection
-	@TEST_USER="$(VM_USER)"; \
+	@if [ -n "$(IS_LOCALHOST)" ]; then \
+		echo "$(WHITE)🎯 Local deployment detected ($(VM_HOST))$(NC)"; \
+		echo "$(GREEN)✅ No SSH connectivity test needed for localhost$(NC)"; \
+		echo "$(WHITE)Target User: $(YELLOW)$(TARGET_USER)$(NC)"; \
+		echo ""; \
+		echo "$(GREEN)✅ Ready for local deployment!$(NC)"; \
+	else \
+		echo "$(WHITE)🎯 Testing connectivity to $(VM_HOST)...$(NC)"; \
+		TEST_USER="$(VM_USER)"; \
 	if [ "$(VM_USER)" = "root" ] && [ -n "$(TARGET_USER)" ]; then \
 		TEST_USER="$(TARGET_USER)"; \
 		echo "$(WHITE)Note: Auto-detected to connect as target user since VM_USER=root$(NC)"; \
@@ -398,8 +408,9 @@ test-connection: ## Test network connectivity to target VM
 		echo "$(YELLOW)💡 Add USE_BECOME_PASSWORD=true BECOME_PASSWORD=your_sudo_password$(NC)"; \
 	fi; \
 	echo ""; \
-	echo "$(GREEN)✅ Connectivity test completed successfully!$(NC)"; \
-	echo "$(WHITE)Ready to deploy to $(YELLOW)$$TEST_USER@$(VM_HOST)$(NC)"
+		echo "$(GREEN)✅ Connectivity test completed successfully!$(NC)"; \
+		echo "$(WHITE)Ready to deploy to $(YELLOW)$$TEST_USER@$(VM_HOST)$(NC)"; \
+	fi
 
 
 
@@ -445,9 +456,9 @@ deploy-mcp: check-config test-connection create-dynamic-inventory ## Deploy MCP 
 	@echo ""
 	@echo "$(WHITE)🎯 Deploying MCP servers with Ansible...$(NC)"
 	@if command -v timeout >/dev/null 2>&1; then \
-		timeout 600 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS)" $(LIMIT_FLAG) --tags mcp; \
+		timeout 600 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS)" $(LIMIT_FLAG) --tags mcp $(ANSIBLE_CONNECTION); \
 	else \
-		$(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS)" $(LIMIT_FLAG) --tags mcp; \
+		$(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS)" $(LIMIT_FLAG) --tags mcp $(ANSIBLE_CONNECTION); \
 	fi || { \
 		echo "$(RED)❌ MCP deployment failed$(NC)"; \
 		echo "$(YELLOW)💡 Possible issues:$(NC)"; \
@@ -486,9 +497,9 @@ deploy-claude-config: check-config test-connection create-dynamic-inventory ## D
 		echo "$(WHITE)🔄 Force override: $(YELLOW)$(CLAUDE_CONFIG_FORCE_OVERRIDE)$(NC)"; \
 	fi; \
 	if command -v timeout >/dev/null 2>&1; then \
-		timeout 300 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$$EXTRA_ANSIBLE_VARS" --tags claude-config $(LIMIT_FLAG); \
+		timeout 300 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$$EXTRA_ANSIBLE_VARS" --tags claude-config $(LIMIT_FLAG) $(ANSIBLE_CONNECTION); \
 	else \
-		$(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$$EXTRA_ANSIBLE_VARS" --tags claude-config $(LIMIT_FLAG); \
+		$(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$$EXTRA_ANSIBLE_VARS" --tags claude-config $(LIMIT_FLAG) $(ANSIBLE_CONNECTION); \
 	fi || { \
 		echo "$(RED)❌ CLAUDE configuration deployment failed$(NC)"; \
 		echo "$(YELLOW)💡 Possible issues:$(NC)"; \
@@ -522,13 +533,19 @@ create-dynamic-inventory: ## Create dynamic inventory for single machine deploym
 	echo "      hosts:" >> "$$INVENTORY_FILE"; \
 	echo "        target:" >> "$$INVENTORY_FILE"; \
 	echo "          ansible_host: $(VM_HOST)" >> "$$INVENTORY_FILE"; \
-	echo "          ansible_user: $$DEPLOY_USER" >> "$$INVENTORY_FILE"; \
-	if [ -n "$(TARGET_SSH_KEY)" ]; then \
-		echo "          ansible_ssh_private_key_file: $(TARGET_SSH_KEY)" >> "$$INVENTORY_FILE"; \
+	if [ -n "$(IS_LOCALHOST)" ]; then \
+		echo "          ansible_connection: local" >> "$$INVENTORY_FILE"; \
+		echo "          ansible_user: $(TARGET_USER)" >> "$$INVENTORY_FILE"; \
+		echo "          ansible_become: no" >> "$$INVENTORY_FILE"; \
+	else \
+		echo "          ansible_user: $$DEPLOY_USER" >> "$$INVENTORY_FILE"; \
+		if [ -n "$(TARGET_SSH_KEY)" ]; then \
+			echo "          ansible_ssh_private_key_file: $(TARGET_SSH_KEY)" >> "$$INVENTORY_FILE"; \
+		fi; \
+		echo "          ansible_ssh_common_args: '-o StrictHostKeyChecking=no'" >> "$$INVENTORY_FILE"; \
+		echo "          ansible_become: yes" >> "$$INVENTORY_FILE"; \
+		echo "          ansible_become_method: sudo" >> "$$INVENTORY_FILE"; \
 	fi; \
-	echo "          ansible_ssh_common_args: '-o StrictHostKeyChecking=no'" >> "$$INVENTORY_FILE"; \
-	echo "          ansible_become: yes" >> "$$INVENTORY_FILE"; \
-	echo "          ansible_become_method: sudo" >> "$$INVENTORY_FILE"; \
 	if [ "$(USE_BECOME_PASSWORD)" = "true" ] && [ -n "$(BECOME_PASSWORD)" ]; then \
 		echo "          ansible_become_password: $(BECOME_PASSWORD)" >> "$$INVENTORY_FILE"; \
 	fi; \
