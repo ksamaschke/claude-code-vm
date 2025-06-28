@@ -17,6 +17,7 @@ Automated deployment system for Claude Code development environments on Debian V
 - 4-tier progressive deployment architecture (baseline → enhanced → containerized → full Kubernetes)
 - Intelligent CLAUDE.md deployment with automatic tier detection and modular template inheritance
 - Comprehensive settings.json with 500+ curated allow/deny security rules for Claude Code
+- External configuration support (keep config files outside project directory)
 - Localhost deployment support (no SSH required)
 - Dynamic inventory generation for single or multi-host deployments
 
@@ -39,6 +40,7 @@ Automated deployment system for Claude Code development environments on Debian V
 - **Progressive complexity**: Start with basic Git+Node.js, scale up to full Kubernetes clusters
 - **Context-aware Claude configuration**: CLAUDE.md automatically adapts to your deployment tier
 - **Purpose-built security**: 500+ rules specifically crafted for Claude Code VM operations
+- **External configuration support**: Keep all config files outside the project directory
 - **Zero-SSH localhost support**: Deploy and test configurations on your local machine
 - **Modular template system**: CLAUDE.md uses inheritance for maintainable, customizable configurations
 
@@ -186,13 +188,22 @@ make deploy-git-repos VM_HOST=192.168.1.100 TARGET_USER=dev GIT_CONFIG_FILE=.git
 # GIT_REPO_1_URL=... (multiple repos)
 ```
 
-### Environment Files
+### External Configuration Files
 ```bash
-# Use custom environment file
-make deploy-enhanced VM_HOST=192.168.1.100 TARGET_USER=dev ENV_FILE=production.env
+# Use external environment file
+make deploy-enhanced VM_HOST=192.168.1.100 TARGET_USER=dev ENV_FILE=/path/to/production.env
 
-# Use custom MCP configuration
-make deploy-enhanced VM_HOST=192.168.1.100 TARGET_USER=dev MCP_FILE=custom-mcp.json
+# Use external MCP configuration
+make deploy-enhanced VM_HOST=192.168.1.100 TARGET_USER=dev MCP_FILE=/path/to/custom-mcp.json
+
+# Use external Claude settings
+make deploy-claude-config VM_HOST=192.168.1.100 TARGET_USER=dev CLAUDE_SETTINGS_FILE=/path/to/custom-settings.json
+
+# Use all external configs
+make deploy-enhanced VM_HOST=192.168.1.100 TARGET_USER=dev \
+  ENV_FILE=/external/configs/production.env \
+  MCP_FILE=/external/configs/my-mcp-servers.json \
+  CLAUDE_SETTINGS_FILE=/external/configs/restrictive-settings.json
 ```
 
 ## 🛠️ Essential Commands
@@ -238,7 +249,7 @@ The system automatically deploys both `CLAUDE.md` and `settings.json` files to `
 - **Project-safe cleanup**: rm -rf allowed within current directory (./* and ./*/*)
 - **Security boundaries**: Blocks destructive ops, privilege escalation, credential exposure
 - **Git safety**: Basic push excluded (requires explicit permission), force push to main/master denied
-- **Configurable**: Use your own template with `CLAUDE_SETTINGS_TEMPLATE` parameter
+- **Configurable**: Use templates (`CLAUDE_SETTINGS_TEMPLATE`) or external files (`CLAUDE_SETTINGS_FILE`)
 - **Inspired by**: [claude-settings](https://github.com/dwillitzer/claude-settings) project
 
 **Usage:**
@@ -249,10 +260,14 @@ make deploy-enhanced VM_HOST=192.168.1.100 TARGET_USER=dev
 # Deploy CLAUDE.md and settings.json only
 make deploy-claude-config VM_HOST=192.168.1.100 TARGET_USER=dev
 
-# Use custom templates
+# Use custom templates or external files
 make deploy-claude-config VM_HOST=192.168.1.100 TARGET_USER=dev \
   CLAUDE_CONFIG_TEMPLATE=config/CLAUDE.custom.md \
   CLAUDE_SETTINGS_TEMPLATE=config/custom-settings.json
+
+# Use external configuration files
+make deploy-claude-config VM_HOST=192.168.1.100 TARGET_USER=dev \
+  CLAUDE_SETTINGS_FILE=/path/to/external-settings.json
 
 # Force override existing files
 make deploy-claude-config VM_HOST=192.168.1.100 TARGET_USER=dev \

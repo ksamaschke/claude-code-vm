@@ -113,7 +113,10 @@ The system automatically detects localhost deployments when `VM_HOST` is set to:
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `CLAUDE_SETTINGS_TEMPLATE` | Path to settings.json template | config/claude-settings.template.json |
+| `CLAUDE_SETTINGS_FILE` | Path to external settings.json file | config/claude-settings.json |
 | `CLAUDE_SETTINGS_FORCE_OVERRIDE` | Force override existing settings.json | false |
+
+**Note**: Use either `CLAUDE_SETTINGS_TEMPLATE` for template files or `CLAUDE_SETTINGS_FILE` for external configuration files. `CLAUDE_SETTINGS_TEMPLATE` takes precedence if both are specified.
 
 ## How It Works
 

@@ -58,6 +58,7 @@ DEPLOY_TARGET ?= single
 ENV_FILE ?= config/.env
 MCP_FILE ?= config/mcp-servers.json
 GIT_CONFIG_FILE ?= $(ENV_FILE)
+CLAUDE_SETTINGS_FILE ?= config/claude-settings.json
 SSH_KEY ?= ~/.ssh/id_rsa
 TEMP_BASE_PATH ?= .tmp
 
@@ -107,6 +108,10 @@ endif
 
 ifneq ($(GIT_CONFIG_FILE),$(ENV_FILE))
 	EXTRA_VARS += custom_git_config_file=$(GIT_CONFIG_FILE)
+endif
+
+ifneq ($(CLAUDE_SETTINGS_FILE),config/claude-settings.json)
+	EXTRA_VARS += custom_claude_settings_file=$(CLAUDE_SETTINGS_FILE)
 endif
 
 # Add user configuration options
@@ -195,6 +200,7 @@ help: ## Show this help message
 	@echo "  $(CYAN)# Deploy CLAUDE.md and settings.json:$(NC)"
 	@echo "  $(CYAN)make deploy-claude-config VM_HOST=192.168.1.100 TARGET_USER=developer$(NC)"
 	@echo "  $(CYAN)make deploy-claude-config VM_HOST=192.168.1.100 TARGET_USER=developer CLAUDE_CONFIG_TEMPLATE=config/CLAUDE.full.md$(NC)"
+	@echo "  $(CYAN)make deploy-claude-config VM_HOST=192.168.1.100 TARGET_USER=developer CLAUDE_SETTINGS_FILE=/path/to/settings.json$(NC)"
 	@echo "  $(CYAN)make deploy-claude-config VM_HOST=localhost TARGET_USER=\$$USER$(NC)"
 	@echo ""
 	@echo "  $(CYAN)# Deploy MCP servers only:$(NC)"
@@ -486,9 +492,15 @@ deploy-claude-config: check-config test-connection create-dynamic-inventory ## D
 		ls -1 config/CLAUDE.*.md 2>/dev/null || echo "$(YELLOW)  No CLAUDE templates found$(NC)"; \
 		exit 1; \
 	fi
+	@# Check settings file/template
 	@if [ -n "$(CLAUDE_SETTINGS_TEMPLATE)" ] && [ ! -f "$(CLAUDE_SETTINGS_TEMPLATE)" ]; then \
 		echo "$(RED)❌ Settings template not found: $(CLAUDE_SETTINGS_TEMPLATE)$(NC)"; \
 		echo "$(YELLOW)💡 Default template: config/claude-settings.template.json$(NC)"; \
+		exit 1; \
+	fi
+	@if [ -n "$(CLAUDE_SETTINGS_FILE)" ] && [ "$(CLAUDE_SETTINGS_FILE)" != "config/claude-settings.json" ] && [ ! -f "$(CLAUDE_SETTINGS_FILE)" ]; then \
+		echo "$(RED)❌ Settings file not found: $(CLAUDE_SETTINGS_FILE)$(NC)"; \
+		echo "$(YELLOW)💡 Default: config/claude-settings.json$(NC)"; \
 		exit 1; \
 	fi
 	@echo ""
@@ -505,6 +517,9 @@ deploy-claude-config: check-config test-connection create-dynamic-inventory ## D
 	if [ -n "$(CLAUDE_SETTINGS_TEMPLATE)" ]; then \
 		EXTRA_ANSIBLE_VARS="$$EXTRA_ANSIBLE_VARS claude_settings_template=$(CLAUDE_SETTINGS_TEMPLATE)"; \
 		echo "$(WHITE)📄 Using settings template: $(YELLOW)$(CLAUDE_SETTINGS_TEMPLATE)$(NC)"; \
+	elif [ -n "$(CLAUDE_SETTINGS_FILE)" ] && [ "$(CLAUDE_SETTINGS_FILE)" != "config/claude-settings.json" ]; then \
+		EXTRA_ANSIBLE_VARS="$$EXTRA_ANSIBLE_VARS claude_settings_template=$(CLAUDE_SETTINGS_FILE)"; \
+		echo "$(WHITE)📄 Using settings file: $(YELLOW)$(CLAUDE_SETTINGS_FILE)$(NC)"; \
 	fi; \
 	if [ -n "$(CLAUDE_SETTINGS_FORCE_OVERRIDE)" ]; then \
 		EXTRA_ANSIBLE_VARS="$$EXTRA_ANSIBLE_VARS claude_settings_force_override=$(CLAUDE_SETTINGS_FORCE_OVERRIDE)"; \
