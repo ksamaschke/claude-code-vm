@@ -1,8 +1,38 @@
 # Claude Code VM
 
-**Automated 4-tier deployment system for Claude Code development environments on Debian VMs**
+Automated deployment system for Claude Code development environments on Debian VMs.
 
-Deploy a complete AI-enabled development environment with Claude Code CLI, Docker, Node.js, Git, Kubernetes, and MCP servers using a flexible 4-tier architecture that scales from minimal to full-featured.
+## Features
+
+**Core Components:**
+- Claude Code CLI installation and configuration
+- Node.js 22 LTS with npm global configuration
+- Git with multi-provider credential management (GitHub, GitLab, Azure DevOps)
+- Docker CE with user group integration (passwordless container access)
+- Docker Compose with latest version auto-resolution
+- Kubernetes tools (kubectl, k3s/KIND support)
+- 7 MCP servers (4 require no API keys, 3 conditional on API keys)
+
+**Configuration Management:**
+- 4-tier deployment architecture (baseline → enhanced → containerized → full)
+- CLAUDE.md deployment with auto-detection and template inheritance
+- settings.json with 500+ allow/deny security rules for safe Claude Code operation
+- Localhost deployment support (no SSH required)
+- Dynamic inventory generation for single or multi-host deployments
+
+**Security & Safety:**
+- Comprehensive allow/deny rules for Claude Code operations
+- SSH access restricted to private network ranges (10.0.0.*, 192.168.*)
+- Project-safe cleanup operations (rm -rf within current directory)
+- Git safety controls (basic push excluded, force push to main/master denied)
+- Credential management without committing sensitive data
+
+**Automation:**
+- Ansible-based deployment with Make interface
+- Automatic component detection and configuration
+- Git repository cloning and management
+- External dependency resolution
+- Comprehensive validation and testing
 
 ## 🚀 Quick Start
 
