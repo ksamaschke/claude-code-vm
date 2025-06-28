@@ -14,14 +14,14 @@ Automated deployment system for Claude Code development environments on Debian V
 - 7 MCP servers (4 require no API keys, 3 conditional on API keys)
 
 **Configuration Management:**
-- 4-tier deployment architecture (baseline → enhanced → containerized → full)
-- CLAUDE.md deployment with auto-detection and template inheritance
-- settings.json with 500+ allow/deny security rules for safe Claude Code operation
+- 4-tier progressive deployment architecture (baseline → enhanced → containerized → full Kubernetes)
+- Intelligent CLAUDE.md deployment with automatic tier detection and modular template inheritance
+- Comprehensive settings.json with 500+ curated allow/deny security rules for Claude Code
 - Localhost deployment support (no SSH required)
 - Dynamic inventory generation for single or multi-host deployments
 
 **Security & Safety:**
-- Comprehensive allow/deny rules for Claude Code operations
+- Curated security ruleset specifically designed for Claude Code VM operations
 - SSH access restricted to private network ranges (10.0.0.*, 192.168.*)
 - Project-safe cleanup operations (rm -rf within current directory)
 - Git safety controls (basic push excluded, force push to main/master denied)
@@ -33,6 +33,14 @@ Automated deployment system for Claude Code development environments on Debian V
 - Git repository cloning and management
 - External dependency resolution
 - Comprehensive validation and testing
+
+## What Makes This Different
+
+- **Progressive complexity**: Start with basic Git+Node.js, scale up to full Kubernetes clusters
+- **Context-aware Claude configuration**: CLAUDE.md automatically adapts to your deployment tier
+- **Purpose-built security**: 500+ rules specifically crafted for Claude Code VM operations
+- **Zero-SSH localhost support**: Deploy and test configurations on your local machine
+- **Modular template system**: CLAUDE.md uses inheritance for maintainable, customizable configurations
 
 ## 🚀 Quick Start
 
