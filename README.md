@@ -175,35 +175,51 @@ make deploy-containerized   # Tier 3: Enhanced + Docker Compose + bashrc
 make deploy-full           # Tier 4: Everything + Kubernetes + comprehensive tooling
 
 # Component-specific deployments
-make deploy-claude-config   # Deploy CLAUDE.md configuration only (supports localhost)
+make deploy-claude-config   # Deploy CLAUDE.md and settings.json (supports localhost)
 make deploy-mcp            # Deploy/update MCP servers on target VM
 make deploy-git-repos      # Clone and manage Git repositories on target VM
 make list-remote SSH_HOST=<ip> SSH_USER=<user>  # List MCP servers on remote VM
 ```
 
-### 4. Claude Configuration (CLAUDE.md)
+### 4. Claude Configuration (CLAUDE.md and settings.json)
 
-The system automatically deploys a `CLAUDE.md` file to `~/.claude/CLAUDE.md` on target VMs, providing Claude Code with context about the deployment environment.
+The system automatically deploys both `CLAUDE.md` and `settings.json` files to `~/.claude/` on target VMs:
+- **CLAUDE.md**: Provides Claude Code with context about the deployment environment
+- **settings.json**: Defines allow/deny rules for safe operation within the VM
 
-**Features:**
+**CLAUDE.md Features:**
 - **Auto-detection**: Automatically selects the right configuration based on deployment tier
 - **Modular templates**: Uses inheritance (common → minimal → enhanced → containerized → full)
 - **Override support**: Use custom templates with `claude_config_template` parameter
 - **Include processing**: Templates can include other templates for modularity
 
+**settings.json Features:**
+- **Comprehensive allow rules**: Safe operations for Docker, Kubernetes, Git, Make, and more
+- **Security-focused deny rules**: Blocks destructive operations, privilege escalation, and credential exposure
+- **Configurable**: Use your own template with `CLAUDE_SETTINGS_TEMPLATE` parameter
+- **Safe defaults**: Pre-configured for typical VM development tasks
+- **Inspired by**: [claude-settings](https://github.com/dwillitzer/claude-settings) project
+
 **Usage:**
 ```bash
-# Auto-detection (default)
+# Auto-detection (default) - deploys both CLAUDE.md and settings.json
 make deploy-enhanced VM_HOST=192.168.1.100 TARGET_USER=dev
-# Deploys config/CLAUDE.enhanced.md automatically
 
-# Deploy CLAUDE.md only with custom template
-make deploy-claude-config VM_HOST=192.168.1.100 TARGET_USER=dev \
-  CLAUDE_CONFIG_TEMPLATE=config/CLAUDE.custom.md
+# Deploy CLAUDE.md and settings.json only
+make deploy-claude-config VM_HOST=192.168.1.100 TARGET_USER=dev
 
-# Force override existing CLAUDE.md
+# Use custom templates
 make deploy-claude-config VM_HOST=192.168.1.100 TARGET_USER=dev \
-  CLAUDE_CONFIG_FORCE_OVERRIDE=true
+  CLAUDE_CONFIG_TEMPLATE=config/CLAUDE.custom.md \
+  CLAUDE_SETTINGS_TEMPLATE=config/custom-settings.json
+
+# Force override existing files
+make deploy-claude-config VM_HOST=192.168.1.100 TARGET_USER=dev \
+  CLAUDE_CONFIG_FORCE_OVERRIDE=true \
+  CLAUDE_SETTINGS_FORCE_OVERRIDE=true
+
+# Deploy to localhost (no SSH required)
+make deploy-claude-config VM_HOST=localhost TARGET_USER=$USER
 ```
 
 See [docs/claude-config.md](docs/claude-config.md) for detailed documentation.

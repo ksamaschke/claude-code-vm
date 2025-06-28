@@ -474,8 +474,8 @@ deploy-mcp: check-config test-connection create-dynamic-inventory ## Deploy MCP 
 	@echo ""
 	@echo "$(GREEN)✅ MCP servers deployed successfully!$(NC)"
 
-deploy-claude-config: check-config test-connection create-dynamic-inventory ## Deploy CLAUDE.md configuration to target VM
-	@echo "$(WHITE)🎯 Deploying CLAUDE.md configuration...$(NC)"
+deploy-claude-config: check-config test-connection create-dynamic-inventory ## Deploy CLAUDE.md and settings.json to target VM
+	@echo "$(WHITE)🎯 Deploying CLAUDE configuration...$(NC)"
 	@echo "$(WHITE)Target: $(YELLOW)$(DEPLOY_TARGET)$(NC)"
 	@echo "$(WHITE)Host: $(YELLOW)$(if $(and $(filter root,$(VM_USER)),$(TARGET_USER)),$(TARGET_USER),$(VM_USER))@$(VM_HOST)$(NC)"
 	@echo "$(WHITE)User: $(YELLOW)$(TARGET_USER)$(NC)"
@@ -485,34 +485,47 @@ deploy-claude-config: check-config test-connection create-dynamic-inventory ## D
 		ls -1 config/CLAUDE.*.md 2>/dev/null || echo "$(YELLOW)  No CLAUDE templates found$(NC)"; \
 		exit 1; \
 	fi
+	@if [ -n "$(CLAUDE_SETTINGS_TEMPLATE)" ] && [ ! -f "$(CLAUDE_SETTINGS_TEMPLATE)" ]; then \
+		echo "$(RED)❌ Settings template not found: $(CLAUDE_SETTINGS_TEMPLATE)$(NC)"; \
+		echo "$(YELLOW)💡 Default template: config/claude-settings.template.json$(NC)"; \
+		exit 1; \
+	fi
 	@echo ""
 	@echo "$(WHITE)🎯 Deploying CLAUDE configuration with Ansible...$(NC)"
 	@EXTRA_ANSIBLE_VARS="$(EXTRA_VARS)"; \
 	if [ -n "$(CLAUDE_CONFIG_TEMPLATE)" ]; then \
 		EXTRA_ANSIBLE_VARS="$$EXTRA_ANSIBLE_VARS claude_config_template=$(CLAUDE_CONFIG_TEMPLATE)"; \
-		echo "$(WHITE)📄 Using template: $(YELLOW)$(CLAUDE_CONFIG_TEMPLATE)$(NC)"; \
+		echo "$(WHITE)📄 Using CLAUDE.md template: $(YELLOW)$(CLAUDE_CONFIG_TEMPLATE)$(NC)"; \
 	fi; \
 	if [ -n "$(CLAUDE_CONFIG_FORCE_OVERRIDE)" ]; then \
 		EXTRA_ANSIBLE_VARS="$$EXTRA_ANSIBLE_VARS claude_config_force_override=$(CLAUDE_CONFIG_FORCE_OVERRIDE)"; \
-		echo "$(WHITE)🔄 Force override: $(YELLOW)$(CLAUDE_CONFIG_FORCE_OVERRIDE)$(NC)"; \
+		echo "$(WHITE)🔄 Force override CLAUDE.md: $(YELLOW)$(CLAUDE_CONFIG_FORCE_OVERRIDE)$(NC)"; \
+	fi; \
+	if [ -n "$(CLAUDE_SETTINGS_TEMPLATE)" ]; then \
+		EXTRA_ANSIBLE_VARS="$$EXTRA_ANSIBLE_VARS claude_settings_template=$(CLAUDE_SETTINGS_TEMPLATE)"; \
+		echo "$(WHITE)📄 Using settings template: $(YELLOW)$(CLAUDE_SETTINGS_TEMPLATE)$(NC)"; \
+	fi; \
+	if [ -n "$(CLAUDE_SETTINGS_FORCE_OVERRIDE)" ]; then \
+		EXTRA_ANSIBLE_VARS="$$EXTRA_ANSIBLE_VARS claude_settings_force_override=$(CLAUDE_SETTINGS_FORCE_OVERRIDE)"; \
+		echo "$(WHITE)🔄 Force override settings.json: $(YELLOW)$(CLAUDE_SETTINGS_FORCE_OVERRIDE)$(NC)"; \
 	fi; \
 	if command -v timeout >/dev/null 2>&1; then \
-		timeout 300 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$$EXTRA_ANSIBLE_VARS" --tags claude-config $(LIMIT_FLAG) $(ANSIBLE_CONNECTION); \
+		timeout 300 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$$EXTRA_ANSIBLE_VARS" --tags claude-config,claude-settings $(LIMIT_FLAG) $(ANSIBLE_CONNECTION); \
 	else \
-		$(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$$EXTRA_ANSIBLE_VARS" --tags claude-config $(LIMIT_FLAG) $(ANSIBLE_CONNECTION); \
+		$(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$$EXTRA_ANSIBLE_VARS" --tags claude-config,claude-settings $(LIMIT_FLAG) $(ANSIBLE_CONNECTION); \
 	fi || { \
 		echo "$(RED)❌ CLAUDE configuration deployment failed$(NC)"; \
 		echo "$(YELLOW)💡 Possible issues:$(NC)"; \
-		echo "$(YELLOW)  - Template file not found or invalid$(NC)"; \
+		echo "$(YELLOW)  - Template files not found or invalid$(NC)"; \
 		echo "$(YELLOW)  - Network connectivity issues$(NC)"; \
 		echo "$(YELLOW)  - Target VM permissions$(NC)"; \
 		echo "$(YELLOW)🔧 Troubleshooting:$(NC)"; \
-		echo "$(YELLOW)  - Check template file exists: ls config/CLAUDE.*.md$(NC)"; \
+		echo "$(YELLOW)  - Check template files exist: ls config/CLAUDE.*.md config/claude-settings.*.json$(NC)"; \
 		echo "$(YELLOW)  - Run 'make test-connection' to verify VM status$(NC)"; \
 		exit 1; \
 	}
 	@echo ""
-	@echo "$(GREEN)✅ CLAUDE.md configuration deployed successfully!$(NC)"
+	@echo "$(GREEN)✅ CLAUDE configuration deployed successfully!$(NC)"
 
 
 

@@ -1,0 +1,187 @@
+---
+# Main tasks for claude-config role
+
+- name: Deploy Claude configuration
+  block:
+    - name: Auto-detect deployment tier if enabled
+      set_fact:
+        detected_tier: >-
+          {%- if install_k3s | default(false) or install_kind | default(false) -%}
+            full
+          {%- elif (install_docker_with_k3s | default(false) or install_docker | default(false)) and docker_compose_installed | default(false) -%}
+            containerized
+          {%- elif install_docker_with_k3s | default(false) or install_docker | default(false) or mcp_servers_deployed | default(false) -%}
+            enhanced
+          {%- else -%}
+            minimal
+          {%- endif -%}
+      when: claude_config_auto_detect
+      tags:
+        - claude-config
+        - auto-detect
+
+    - name: Resolve template path
+      set_fact:
+        resolved_template: >-
+          {%- if claude_config_template != "config/CLAUDE.full.md" -%}
+            {{ claude_config_template }}
+          {%- elif claude_config_auto_detect -%}
+            config/CLAUDE.{{ detected_tier }}.md
+          {%- else -%}
+            {{ claude_config_template }}
+          {%- endif -%}
+      tags:
+        - claude-config
+        - auto-detect
+
+    - name: Display auto-detection results
+      debug:
+        msg:
+          - "=== Claude Configuration Auto-Detection ==="
+          - "Auto-detection enabled: {{ claude_config_auto_detect }}"
+          - "Detected tier: {{ detected_tier | default('N/A') }}"
+          - "Resolved template: {{ resolved_template }}"
+      when: claude_config_auto_detect
+      tags:
+        - claude-config
+        - auto-detect
+
+    - name: Check if Claude configuration template exists
+      stat:
+        path: "{{ claude_config_base_dir }}/{{ resolved_template }}"
+      register: template_file_stat
+      delegate_to: localhost
+      become: false
+      tags:
+        - claude-config
+        - validation
+
+    - name: Fail if template does not exist
+      fail:
+        msg: "Claude configuration template not found: {{ resolved_template }}"
+      when: not template_file_stat.stat.exists
+      tags:
+        - claude-config
+        - validation
+
+    - name: Check if user already has CLAUDE.md
+      stat:
+        path: "{{ claude_config_file }}"
+      register: existing_claude_config
+      tags:
+        - claude-config
+
+    - name: Backup existing CLAUDE.md if force override is enabled
+      copy:
+        src: "{{ claude_config_file }}"
+        dest: "{{ claude_config_file }}.backup-{{ ansible_date_time.epoch }}"
+        remote_src: true
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: '0644'
+      when:
+        - existing_claude_config.stat.exists
+        - claude_config_force_override
+      tags:
+        - claude-config
+        - backup
+
+    - name: Create .claude directory for user
+      file:
+        path: "{{ claude_config_dir }}"
+        state: directory
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: '0755'
+      tags:
+        - claude-config
+
+    - name: Deploy CLAUDE.md with include processing
+      include_tasks: process-includes.yml
+      when: not existing_claude_config.stat.exists or claude_config_force_override
+      tags:
+        - claude-config
+        - deploy
+        - includes
+
+    - name: Display Claude configuration deployment status
+      debug:
+        msg:
+          - "=== Claude Configuration Deployment ==="
+          - "Template: {{ resolved_template }}"
+          - "Target: {{ claude_config_file }}"
+          - "Status: {{ 'Skipped - file exists (use claude_config_force_override=true to override)' if existing_claude_config.stat.exists and not claude_config_force_override else 'Deployed successfully' }}"
+          - "{{ 'Backup created: ' + claude_config_file + '.backup-' + ansible_date_time.epoch if existing_claude_config.stat.exists and claude_config_force_override else '' }}"
+      tags:
+        - claude-config
+        - status
+
+  when: create_user_claude_config
+  tags:
+    - claude-config
+
+# Deploy Claude Code settings.json (permissions configuration)
+- name: Deploy Claude Code settings configuration
+  block:
+    - name: Check if Claude settings template exists
+      stat:
+        path: "{{ claude_config_base_dir }}/{{ claude_settings_template }}"
+      register: settings_template_stat
+      delegate_to: localhost
+      become: false
+      tags:
+        - claude-settings
+        - validation
+
+    - name: Check if user already has settings.json
+      stat:
+        path: "{{ claude_settings_file }}"
+      register: existing_claude_settings
+      tags:
+        - claude-settings
+
+    - name: Backup existing settings.json if force override is enabled
+      copy:
+        src: "{{ claude_settings_file }}"
+        dest: "{{ claude_settings_file }}.backup-{{ ansible_date_time.epoch }}"
+        remote_src: true
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: '0644'
+      when:
+        - existing_claude_settings.stat.exists
+        - claude_settings_force_override
+      tags:
+        - claude-settings
+        - backup
+
+    - name: Deploy Claude settings.json
+      copy:
+        src: "{{ claude_config_base_dir }}/{{ claude_settings_template }}"
+        dest: "{{ claude_settings_file }}"
+        owner: "{{ target_user }}"
+        group: "{{ target_user }}"
+        mode: '0644'
+      when:
+        - settings_template_stat.stat.exists
+        - not existing_claude_settings.stat.exists or claude_settings_force_override
+      tags:
+        - claude-settings
+        - deploy
+
+    - name: Display Claude settings deployment status
+      debug:
+        msg:
+          - "=== Claude Settings Deployment ==="
+          - "Template: {{ claude_settings_template }}"
+          - "Target: {{ claude_settings_file }}"
+          - "Status: {{ 'Skipped - file exists (use claude_settings_force_override=true to override)' if existing_claude_settings.stat.exists and not claude_settings_force_override else 'Deployed successfully' if settings_template_stat.stat.exists else 'Skipped - no template found' }}"
+          - "{{ 'Backup created: ' + claude_settings_file + '.backup-' + ansible_date_time.epoch if existing_claude_settings.stat.exists and claude_settings_force_override else '' }}"
+      tags:
+        - claude-settings
+        - status
+
+  when: create_user_claude_config
+  tags:
+    - claude-config
+    - claude-settings

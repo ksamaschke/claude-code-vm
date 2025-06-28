@@ -72,7 +72,7 @@ make deploy-full VM_HOST=<ip> TARGET_USER=<user>
 # Validate deployment
 make validate VM_HOST=<ip> TARGET_USER=<user>
 
-# Deploy CLAUDE.md configuration only
+# Deploy CLAUDE.md and settings.json configuration
 make deploy-claude-config VM_HOST=<ip> TARGET_USER=<user>
 
 # Deploy only MCP servers
@@ -211,6 +211,34 @@ make deploy VM_HOST=<ip> TARGET_USER=<user> \
 4. Deploy with `claude_config_template` parameter
 
 See `docs/claude-config.md` for detailed documentation.
+
+## 🔒 Claude Settings (Security Configuration)
+
+The system also deploys a `settings.json` file alongside CLAUDE.md to define allow/deny rules for Claude Code operations:
+
+### Features
+- **Comprehensive allow rules**: Safe operations for development tasks
+- **Security-focused deny rules**: Blocks destructive and dangerous operations
+- **Default template**: `config/claude-settings.template.json` with pre-configured rules
+- **Customizable**: Use your own settings template
+
+### Usage
+```bash
+# Deploy with default settings
+make deploy-claude-config VM_HOST=<ip> TARGET_USER=<user>
+
+# Use custom settings template
+make deploy-claude-config VM_HOST=<ip> TARGET_USER=<user> \
+  CLAUDE_SETTINGS_TEMPLATE=config/custom-settings.json
+
+# Force override existing settings.json
+make deploy-claude-config VM_HOST=<ip> TARGET_USER=<user> \
+  CLAUDE_SETTINGS_FORCE_OVERRIDE=true
+```
+
+### Default Rules Include
+- ✅ **Allowed**: Docker, Kubernetes, Git, Make, npm, file operations, web fetching
+- ❌ **Denied**: Destructive operations, privilege escalation, credential exposure, system shutdown
 
 ## ⚠️ Important Notes
 

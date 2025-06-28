@@ -12,6 +12,9 @@
 mcp-servers.json
 !config/mcp-servers.template.json
 
+# Claude Code Settings (allow template)
+!config/claude-settings.template.json
+
 # SSH Keys and Certificates
 *.pem
 *.key

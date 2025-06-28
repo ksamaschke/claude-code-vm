@@ -1,0 +1,61 @@
+---
+# Default variables for claude-config role
+
+# Enable Claude configuration deployment
+create_user_claude_config: true
+
+# Path to the Claude configuration template
+# This can be overridden to use different templates for different use cases
+# Examples:
+#   - config/CLAUDE.full.md (default - full deployment with k3s/Docker)
+#   - config/CLAUDE.minimal.md (minimal deployment)
+#   - config/CLAUDE.enhanced.md (enhanced deployment with MCP)
+#   - config/CLAUDE.containerized.md (containerized deployment)
+#   - /path/to/custom/CLAUDE.md (custom template)
+claude_config_template: "config/CLAUDE.full.md"
+
+# Auto-detect Claude configuration based on deployment tier
+# If true, will automatically select the appropriate template based on installed components
+# Priority: explicit claude_config_template > auto-detected variant > default
+claude_config_auto_detect: true
+
+# Deployment tier (set automatically by playbooks or can be overridden)
+# Values: minimal, enhanced, containerized, full
+deployment_tier: "full"
+
+# Force override existing CLAUDE.md file
+# If false, existing CLAUDE.md files will not be overwritten
+# If true, existing CLAUDE.md files will be replaced with the template
+claude_config_force_override: false
+
+# Allow command execution in Claude configuration
+# This controls whether Claude Code can execute commands remotely
+allow_command_execution: true
+
+# Subagent usage configuration
+# Controls whether Claude Code can use subagents for parallel task execution
+subagent_usage: "enabled"
+max_parallel_tasks: 4
+task_coordination: "automatic"
+
+# Target user home directory (will be set from target_user variable)
+target_user_home: "/home/{{ target_user }}"
+
+# Base directory for configuration templates
+# This should point to the root of the project
+# If running from ansible/playbooks, go up two levels
+# If running from root, stay at root
+claude_config_base_dir: "{{ playbook_dir if 'ansible/playbooks' not in playbook_dir else playbook_dir + '/../..' }}"
+
+# Claude configuration directory
+claude_config_dir: "{{ target_user_home }}/.claude"
+claude_config_file: "{{ claude_config_dir }}/CLAUDE.md"
+
+# Include processing configuration
+claude_config_max_include_depth: 10  # Maximum depth for include processing
+claude_config_processed_temp_dir: "/tmp/claude-config-{{ ansible_date_time.epoch }}"
+
+# Claude Code settings configuration
+claude_settings_template: "config/claude-settings.template.json"
+claude_settings_file: "{{ claude_config_dir }}/settings.json"
+claude_settings_force_override: false
