@@ -75,7 +75,7 @@
 
     - name: Copy template MCP servers configuration if none exists locally
       copy:
-        src: "{{ playbook_dir }}/../config/mcp-servers.template.json"
+        src: "{{ playbook_dir }}/../../config/mcp-servers.template.json"
         dest: "{{ mcp_servers_file }}"
         mode: '0600'
       delegate_to: localhost
