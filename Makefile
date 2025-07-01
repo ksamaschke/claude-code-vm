@@ -239,15 +239,15 @@ deploy-baseline: check-config test-connection create-dynamic-inventory ## Deploy
 	}
 	@echo "$(GREEN)✅ Baseline deployment complete!$(NC)"
 
-# Tier 2: Enhanced - Baseline + MCPs + Docker + Docker group integration
-deploy-enhanced: check-config test-connection create-dynamic-inventory ## Deploy enhanced system (Baseline + MCPs + Docker)
+# Tier 2: Enhanced - Baseline + MCPs + Docker + Virtual Development Team
+deploy-enhanced: check-config test-connection create-dynamic-inventory ## Deploy enhanced system (Baseline + MCPs + Docker + Virtual Team)
 	@echo "$(WHITE)Deployment Dir: $(YELLOW)$(DEPLOYMENT_DIR)$(NC)"
 	@echo ""
-	@echo "$(WHITE)🎯 Starting enhanced deployment (Baseline + MCPs + Docker)...$(NC)"
+	@echo "$(WHITE)🎯 Starting enhanced deployment (Baseline + MCPs + Docker + Virtual Team)...$(NC)"
 	@if command -v timeout >/dev/null 2>&1; then \
-		timeout 1800 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i ansible/inventories/production -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS) install_docker=true" --tags "common,git,git-repos,nodejs,uvx,mcp,docker" $(LIMIT_FLAG); \
+		timeout 1800 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i ansible/inventories/production -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS) install_docker=true intelligent_claude_code_enabled=true" --tags "common,git,git-repos,nodejs,uvx,mcp,docker,claude-config,intelligent-claude-code" $(LIMIT_FLAG); \
 	else \
-		$(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i ansible/inventories/production -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS) install_docker=true" --tags "common,git,git-repos,nodejs,uvx,mcp,docker" $(LIMIT_FLAG); \
+		$(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i ansible/inventories/production -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS) install_docker=true intelligent_claude_code_enabled=true" --tags "common,git,git-repos,nodejs,uvx,mcp,docker,claude-config,intelligent-claude-code" $(LIMIT_FLAG); \
 	fi || { \
 		echo "$(RED)❌ Deployment failed or timed out$(NC)"; \
 		echo "$(YELLOW)💡 Run 'make test-connection' to verify VM status$(NC)"; \
@@ -255,15 +255,15 @@ deploy-enhanced: check-config test-connection create-dynamic-inventory ## Deploy
 	}
 	@echo "$(GREEN)✅ Enhanced deployment complete!$(NC)"
 
-# Tier 3: Containerized - Enhanced + Docker Compose + bashrc integrations
-deploy-containerized: check-config test-connection create-dynamic-inventory ## Deploy containerized system (Enhanced + Docker Compose + bashrc)
+# Tier 3: Containerized - Enhanced + Docker Compose + bashrc integrations + Virtual Team
+deploy-containerized: check-config test-connection create-dynamic-inventory ## Deploy containerized system (Enhanced + Docker Compose + bashrc + Virtual Team)
 	@echo "$(WHITE)Deployment Dir: $(YELLOW)$(DEPLOYMENT_DIR)$(NC)"
 	@echo ""
-	@echo "$(WHITE)🎯 Starting containerized deployment (Enhanced + Docker Compose + bashrc)...$(NC)"
+	@echo "$(WHITE)🎯 Starting containerized deployment (Enhanced + Docker Compose + bashrc + Virtual Team)...$(NC)"
 	@if command -v timeout >/dev/null 2>&1; then \
-		timeout 1800 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i ansible/inventories/production -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS) install_docker=true enable_bashrc_integrations=true" --tags "common,git,git-repos,nodejs,uvx,mcp,docker,bashrc" $(LIMIT_FLAG); \
+		timeout 1800 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i ansible/inventories/production -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS) install_docker=true enable_bashrc_integrations=true intelligent_claude_code_enabled=true" --tags "common,git,git-repos,nodejs,uvx,mcp,docker,bashrc,claude-config,intelligent-claude-code" $(LIMIT_FLAG); \
 	else \
-		$(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i ansible/inventories/production -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS) install_docker=true enable_bashrc_integrations=true" --tags "common,git,git-repos,nodejs,uvx,mcp,docker,bashrc" $(LIMIT_FLAG); \
+		$(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i ansible/inventories/production -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS) install_docker=true enable_bashrc_integrations=true intelligent_claude_code_enabled=true" --tags "common,git,git-repos,nodejs,uvx,mcp,docker,bashrc,claude-config,intelligent-claude-code" $(LIMIT_FLAG); \
 	fi || { \
 		echo "$(RED)❌ Deployment failed or timed out$(NC)"; \
 		echo "$(YELLOW)💡 Run 'make test-connection' to verify VM status$(NC)"; \
@@ -271,11 +271,11 @@ deploy-containerized: check-config test-connection create-dynamic-inventory ## D
 	}
 	@echo "$(GREEN)✅ Containerized deployment complete!$(NC)"
 
-# Tier 4: Full - Containerized + Kubernetes tools + all CLI tools + comprehensive bashrc
-deploy-full: check-config test-connection create-dynamic-inventory ## Deploy full system (Everything + Kubernetes + comprehensive bashrc)
+# Tier 4: Full - Containerized + Kubernetes tools + all CLI tools + comprehensive bashrc + Virtual Team
+deploy-full: check-config test-connection create-dynamic-inventory ## Deploy full system (Everything + Kubernetes + comprehensive bashrc + Virtual Team)
 	@echo "$(WHITE)Deployment Dir: $(YELLOW)$(DEPLOYMENT_DIR)$(NC)"
 	@echo ""
-	@echo "$(WHITE)🎯 Starting full deployment (Everything + Kubernetes)...$(NC)"
+	@echo "$(WHITE)🎯 Starting full deployment (Everything + Kubernetes + Virtual Team)...$(NC)"
 	@KUBERNETES_BACKEND="$(KUBERNETES_BACKEND)"; \
 	if [ "$$KUBERNETES_BACKEND" = "kind" ]; then \
 		KUBERNETES_FLAGS="install_docker=true install_kubectl=true install_kind=true install_k3s=false install_kompose=true"; \
@@ -283,9 +283,9 @@ deploy-full: check-config test-connection create-dynamic-inventory ## Deploy ful
 		KUBERNETES_FLAGS="install_docker=true install_kubectl=true install_k3s=true install_kind=false install_kompose=true"; \
 	fi; \
 	if command -v timeout >/dev/null 2>&1; then \
-		timeout 1800 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i ansible/inventories/production -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS) $$KUBERNETES_FLAGS enable_bashrc_integrations=true" $(LIMIT_FLAG); \
+		timeout 1800 $(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i ansible/inventories/production -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS) $$KUBERNETES_FLAGS enable_bashrc_integrations=true intelligent_claude_code_enabled=true" $(LIMIT_FLAG); \
 	else \
-		$(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i ansible/inventories/production -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS) $$KUBERNETES_FLAGS enable_bashrc_integrations=true" $(LIMIT_FLAG); \
+		$(ANSIBLE_PLAYBOOK) $(PLAYBOOK_DIR)/site.yml -i ansible/inventories/production -i $(TEMP_BASE_PATH)/claude-code-vm/$(VM_HOST)/inventory.yml -e "$(EXTRA_VARS) $$KUBERNETES_FLAGS enable_bashrc_integrations=true intelligent_claude_code_enabled=true" $(LIMIT_FLAG); \
 	fi || { \
 		echo "$(RED)❌ Deployment failed or timed out$(NC)"; \
 		echo "$(YELLOW)💡 Run 'make test-connection' to verify VM status$(NC)"; \

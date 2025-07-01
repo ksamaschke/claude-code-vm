@@ -74,6 +74,11 @@ upgrade_packages: true
 default_env_file: "{{ ansible_env.HOME }}/.config/claude-code-mcps/.env"
 default_mcp_servers_file: "{{ ansible_env.HOME }}/.config/claude-code-mcps/mcp-servers.json"
 
+# === Intelligent Claude Code (Virtual Development Team) ===
+intelligent_claude_code_enabled: false  # Set to true for enhanced+ deployments
+intelligent_claude_code_repo_url: "https://github.com/ksamaschke/intelligent-claude-code"
+intelligent_claude_code_version: "main"
+
 # === Configurable Timeouts (all in seconds) ===
 # Package manager wait settings
 package_manager_max_wait_seconds: 60  # Max wait for package locks to clear

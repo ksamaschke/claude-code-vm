@@ -1,0 +1,182 @@
+---
+# Intelligent Claude Code role - Virtual Development Team integration
+
+- name: Get target user information
+  getent:
+    database: passwd
+    key: "{{ target_user }}"
+  register: icc_user_info
+  tags:
+    - intelligent-claude-code
+    - user-setup
+
+- name: Set target user home directory
+  set_fact:
+    target_user_home: "{{ icc_user_info.ansible_facts.getent_passwd[target_user][4] }}"
+  tags:
+    - intelligent-claude-code
+    - user-setup
+
+- name: Check if Intelligent Claude Code is enabled
+  debug:
+    msg: "Intelligent Claude Code integration: {{ intelligent_claude_code_enabled | default(false) }}"
+  tags:
+    - intelligent-claude-code
+    - debug
+
+- name: Create external tools directory
+  file:
+    path: "{{ external_tools_dir }}"
+    state: directory
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: '0755'
+  when: intelligent_claude_code_enabled | default(false)
+  tags:
+    - intelligent-claude-code
+    - directories
+
+- name: Download Intelligent Claude Code repository
+  git:
+    repo: "{{ intelligent_claude_code_repo_url | default('https://github.com/ksamaschke/intelligent-claude-code') }}"
+    dest: "{{ external_tools_dir }}/intelligent-claude-code"
+    version: "{{ intelligent_claude_code_version | default('main') }}"
+    force: true
+  become_user: "{{ target_user }}"
+  when: intelligent_claude_code_enabled | default(false)
+  tags:
+    - intelligent-claude-code
+    - download
+
+- name: Check if ICC repository was downloaded successfully
+  stat:
+    path: "{{ external_tools_dir }}/intelligent-claude-code/Makefile"
+  register: icc_makefile_check
+  when: intelligent_claude_code_enabled | default(false)
+  tags:
+    - intelligent-claude-code
+    - validation
+
+- name: Fail if ICC repository download failed
+  fail:
+    msg: "Failed to download Intelligent Claude Code repository. Makefile not found at {{ external_tools_dir }}/intelligent-claude-code/Makefile"
+  when: 
+    - intelligent_claude_code_enabled | default(false)
+    - not icc_makefile_check.stat.exists
+  tags:
+    - intelligent-claude-code
+    - validation
+
+- name: Check for existing .claude directory
+  stat:
+    path: "{{ target_user_home }}/.claude"
+  register: claude_dir_check
+  when: intelligent_claude_code_enabled | default(false)
+  tags:
+    - intelligent-claude-code
+    - pre-install
+
+- name: Create .claude directory if it doesn't exist
+  file:
+    path: "{{ target_user_home }}/.claude"
+    state: directory
+    owner: "{{ target_user }}"
+    group: "{{ target_user }}"
+    mode: '0755'
+  when: 
+    - intelligent_claude_code_enabled | default(false)
+    - not claude_dir_check.stat.exists
+  tags:
+    - intelligent-claude-code
+    - directories
+
+
+- name: Install Intelligent Claude Code using make install
+  make:
+    chdir: "{{ external_tools_dir }}/intelligent-claude-code"
+    target: install
+  environment:
+    TARGET_PATH: "{{ target_user_home }}/.claude"
+  become_user: "{{ target_user }}"
+  when: intelligent_claude_code_enabled | default(false)
+  tags:
+    - intelligent-claude-code
+    - install
+
+
+
+- name: Verify Virtual Team mode installation
+  stat:
+    path: "{{ target_user_home }}/.claude/modes/virtual-team.md"
+  register: virtual_team_check
+  when: intelligent_claude_code_enabled | default(false)
+  tags:
+    - intelligent-claude-code
+    - verification
+
+- name: Verify personas installation
+  stat:
+    path: "{{ target_user_home }}/.claude/personas"
+  register: personas_check
+  when: intelligent_claude_code_enabled | default(false)
+  tags:
+    - intelligent-claude-code
+    - verification
+
+- name: Verify behaviors installation
+  stat:
+    path: "{{ target_user_home }}/.claude/behaviors"
+  register: behaviors_check
+  when: intelligent_claude_code_enabled | default(false)
+  tags:
+    - intelligent-claude-code
+    - verification
+
+- name: Assert Virtual Team installation success
+  assert:
+    that:
+      - virtual_team_check.stat.exists
+      - personas_check.stat.exists
+      - behaviors_check.stat.exists
+    fail_msg: "Intelligent Claude Code installation verification failed. Missing required files."
+    success_msg: "Intelligent Claude Code Virtual Team mode successfully installed."
+  when: intelligent_claude_code_enabled | default(false)
+  tags:
+    - intelligent-claude-code
+    - verification
+
+- name: Check if CLAUDE.md exists and contains virtual team import
+  lineinfile:
+    path: "{{ target_user_home }}/.claude/CLAUDE.md"
+    regexp: '@~/.claude/modes/virtual-team.md'
+    state: absent
+  check_mode: true
+  register: claude_md_integration_check
+  when: intelligent_claude_code_enabled | default(false)
+  tags:
+    - intelligent-claude-code
+    - integration-check
+
+- name: Display ICC integration status
+  debug:
+    msg: |
+      Intelligent Claude Code Integration Status:
+      - Virtual Team Mode: {{ 'INSTALLED' if virtual_team_check.stat.exists else 'MISSING' }}
+      - Personas: {{ 'INSTALLED' if personas_check.stat.exists else 'MISSING' }}
+      - Behaviors: {{ 'INSTALLED' if behaviors_check.stat.exists else 'MISSING' }}
+      - CLAUDE.md Integration: {{ 'CONFIGURED' if not claude_md_integration_check.changed else 'NEEDS INTEGRATION' }}
+      - Installation Path: {{ target_user_home }}/.claude/
+  when: intelligent_claude_code_enabled | default(false)
+  tags:
+    - intelligent-claude-code
+    - status
+
+- name: Log ICC installation completion
+  debug:
+    msg: "Intelligent Claude Code Virtual Development Team successfully integrated into {{ target_user }}'s environment"
+  when: 
+    - intelligent_claude_code_enabled | default(false)
+    - virtual_team_check.stat.exists
+  tags:
+    - intelligent-claude-code
+    - completion

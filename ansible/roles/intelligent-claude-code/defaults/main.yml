@@ -1,0 +1,18 @@
+---
+# Default variables for intelligent-claude-code role
+
+# Enable/disable Intelligent Claude Code installation
+intelligent_claude_code_enabled: false
+
+# Repository configuration
+intelligent_claude_code_repo_url: "https://github.com/ksamaschke/intelligent-claude-code"
+intelligent_claude_code_version: "main"
+
+# Installation configuration
+external_tools_dir: "{{ target_user_home }}/.claude-code-vm/external-tools"
+
+# Ansible configuration
+ansible_playbook_binary: "/usr/bin/ansible-playbook"
+
+# Installation validation
+verify_installation: true

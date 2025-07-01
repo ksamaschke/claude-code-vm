@@ -232,6 +232,45 @@
     - system
     - packages
 
+- name: Add GitHub CLI repository key
+  apt_key:
+    url: https://cli.github.com/packages/githubcli-archive-keyring.gpg
+    keyring: /etc/apt/keyrings/githubcli-archive-keyring.gpg
+    state: present
+  become: true
+  tags:
+    - system
+    - packages
+    - github-cli
+
+- name: Add GitHub CLI repository
+  apt_repository:
+    repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main"
+    state: present
+    filename: github-cli
+  become: true
+  tags:
+    - system
+    - packages
+    - github-cli
+
+- name: Update apt cache after adding GitHub CLI repository
+  apt:
+    update_cache: true
+  tags:
+    - system
+    - packages
+    - github-cli
+
+- name: Install GitHub CLI
+  apt:
+    name: gh
+    state: present
+  tags:
+    - system
+    - packages
+    - github-cli
+
 - name: Install optional packages
   apt:
     name: "{{ optional_packages }}"

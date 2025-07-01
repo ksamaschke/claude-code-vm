@@ -20,6 +20,7 @@ essential_packages:
   - unzip
   - python3-pip
   - jq
+  - ansible
 
 # Optional packages
 optional_packages:

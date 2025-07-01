@@ -157,6 +157,14 @@
         mcp_servers_deployed: true
         docker_compose_installed: "{{ install_docker | default(false) }}"
 
+    - role: intelligent-claude-code
+      when: intelligent_claude_code_enabled | default(false) | bool
+      tags:
+        - intelligent-claude-code
+        - virtual-team
+        - ai-enhanced
+        - enhanced
+
   post_tasks:
     - name: Ensure /tmp permissions are correct after all installations
       shell: |
